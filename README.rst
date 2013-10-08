@@ -19,4 +19,6 @@ Zookeeper_ will be used as the main node state tracker.
 
 .. _Zookeeper: http://zookeeper.apache.org/
 
-
+.. image:: docs/images/babysitter.png
+    :width: 400px
+    :alt: babysitter architecture
