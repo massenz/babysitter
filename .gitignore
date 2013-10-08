@@ -1,0 +1,11 @@
+.idea
+*.iml
+.venv
+.DS_Store
+*.pyc
+*.egg-info
+
+build/
+dist/
+target/
+lib/
