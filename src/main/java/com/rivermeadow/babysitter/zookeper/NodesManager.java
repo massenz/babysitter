@@ -1,6 +1,7 @@
 package com.rivermeadow.babysitter.zookeper;
 
 import com.rivermeadow.babysitter.model.Server;
+import com.rivermeadow.babysitter.model.Status;
 import org.apache.zookeeper.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
@@ -47,24 +48,28 @@ public class NodesManager implements Watcher, BeatListener {
     }
 
     @Override
-    public void register(Server server) {
+    public Status register(Server server) {
         try {
             create(server.getServerAddress().getHostname());
             // TODO: add server data to zk node
         } catch (KeeperException | InterruptedException e) {
             logger.severe(String.format("Could not register server: %s [%s]" +
                     server.getServerAddress().getHostname(), e.getLocalizedMessage()));
-            // TODO: silently ignore?
+            return Status.createErrorStatus(String.format("Failed to register server %s. " +
+                    "Original cause was: %s", server.getServerAddress().getHostname(),
+                    e.getLocalizedMessage()));
         }
+        return Status.createStatus(String.format("Server %s registered",
+                server.getServerAddress().getHostname()));
     }
 
     @Override
-    public void updateHeartbeat(Server server) {
-        //To change body of implemented methods use File | Settings | File Templates.
+    public Status updateHeartbeat(Server server) {
+        return Status.createErrorStatus("Not implemented");
     }
 
     @Override
-    public void deregister(Server server) {
-        //To change body of implemented methods use File | Settings | File Templates.
+    public Status deregister(Server server) {
+        return Status.createErrorStatus("Not implemented");
     }
 }
