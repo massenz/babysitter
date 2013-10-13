@@ -1,86 +1,48 @@
 package com.rivermeadow.babysitter.resources;
 
-import org.apache.zookeeper.*;
-import org.springframework.boot.*;
-import org.springframework.boot.autoconfigure.*;
+import com.rivermeadow.babysitter.model.Server;
+import com.rivermeadow.babysitter.spring.BeanConfiguration;
+import com.rivermeadow.babysitter.zookeper.BeatListener;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
-import java.io.File;
-import java.io.IOException;
-import java.util.Map;
-import java.util.concurrent.CountDownLatch;
 import java.util.logging.Logger;
 
 @Controller
 @EnableAutoConfiguration
-public class ServerController implements Watcher {
+public class ServerController {
 
     private static final int SESSION_TIMEOUT = 5000;
     Logger logger = Logger.getLogger("ServerController");
-    private ZooKeeper zk;
-    private CountDownLatch connectedSignal = new CountDownLatch(1);
 
-    @RequestMapping(value = "/register/{id}", method = {RequestMethod.POST})
+    @Autowired
+    private BeatListener listener;
+
+    @RequestMapping(value = "/register/{id}", method = {RequestMethod.POST},
+            consumes = "application/json", produces = "text/plain")
     @ResponseBody
-    String register(@PathVariable String id) {
-        if (zk == null) {
-            try {
-                connect("localhost");
-                logger.info("Connected to Zookeper on localhost");
-            } catch (IOException | InterruptedException e) {
-                e.printStackTrace();
-                return "failed: " + e.getLocalizedMessage();
-            }
-        }
-        try {
-            create(id);
-        } catch (KeeperException | InterruptedException e) {
-            String msg = String.format("Could not register %s, cause was: %s", id,
-                    e.getLocalizedMessage());
-            logger.severe(msg);
-            throw new IllegalStateException(msg);
-        }
+    String register(@PathVariable String id, @RequestBody Server serverData) {
+        // TODO: use Jackson to create the Server object from the JSON body
+        listener.register(serverData);
         logger.info(String.format("Server %s registered", id));
         return "ok";
     }
 
-    @RequestMapping(value = "/beat", method = {RequestMethod.POST})
+    @RequestMapping(value = "/beat", method = {RequestMethod.POST},
+            consumes = "application/json", produces = "text/plain")
     @ResponseBody
-    String beat(@RequestBody Map<String, ?> body) {
-        if (zk == null) {
-            // We got a heartbeat from a server that never registered,
-            // this is not a valid situation
-            throw new IllegalStateException(String.format("Server %s never registered and we are " +
-                    "not ready yet to accept heartbeats", body.get("hostname")));
-        }
-        if (body != null) {
-            logger.info(String.format("POST heartbeat from [%s]", body.get("ip").toString()));
-            logger.info(String.format("Hostname: %s", body.get("hostname")));
-        }
+    String beat(@RequestBody Server server) {
+        logger.info(String.format("POST heartbeat from %s [%s]", server.getServerType(),
+                server.getServerAddress().getHostname()));
+        listener.updateHeartbeat(server);
         return "ok";
     }
 
     public static void main(String[] args) throws Exception {
-        SpringApplication.run(ServerController.class, args);
-    }
-
-    @Override
-    public void process(WatchedEvent watchedEvent) {
-        if (watchedEvent.getState() == Event.KeeperState.SyncConnected) {
-            connectedSignal.countDown();
-        }
-    }
-
-    public void connect(String hosts) throws IOException, InterruptedException {
-        zk = new ZooKeeper(hosts, SESSION_TIMEOUT, this);
-        connectedSignal.await();
-    }
-
-    public void create(String name) throws KeeperException, InterruptedException {
-        String path = File.separator + name;
-        String createdPath = zk.create(path, null, ZooDefs.Ids.OPEN_ACL_UNSAFE,
-                CreateMode.PERSISTENT);
-        logger.info(String.format("Created %s", createdPath));
+        SpringApplication.run(new Object[] {ServerController.class, BeanConfiguration.class},
+                args);
     }
 }
