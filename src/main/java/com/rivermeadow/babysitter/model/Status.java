@@ -61,6 +61,10 @@ public class Status {
         return result;
     }
 
+    public boolean isError() {
+        return getStatusCode() == Code.FAILURE;
+    }
+
     /**
      * Factory method to create an error status message
      *
@@ -83,5 +87,16 @@ public class Status {
             detail = "Ok";
         }
         return new Status(Code.SUCCESS, detail);
+    }
+
+    /**
+     * Factory method, creates an error status with the detail from the exception's error message
+     *
+     * @param throwable whose @link{Throwable#getLocalizedMessage} will be used to create the
+     *                  error detail
+     * @return a newly create error Status
+     */
+    public Status fromException(Throwable throwable) {
+        return createErrorStatus(throwable.getLocalizedMessage());
     }
 }

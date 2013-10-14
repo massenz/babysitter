@@ -3,6 +3,7 @@
 
 import argparse
 import json
+from kazoo.client import KazooClient
 import os
 import socket
 import threading
@@ -13,15 +14,13 @@ import requests
 """ A simple server that sends a hearbeat every --interval seconds to a given monitoring service.
 """
 
-REGISTER_URL = 'register'
-BEAT_URL = 'beat'
 
 
 # TODO: this is just for testing, the real body should be created from a template
 def build_hb_body(interval, max_missed):
     body = {
         'server_address': {
-            "ip": "192.168.2.53",
+            "ip": get_my_ip(),
             "hostname": socket.gethostname()
         },
         'ttl': interval,
@@ -31,6 +30,12 @@ def build_hb_body(interval, max_missed):
         'port': 9099
     }
     return body
+
+
+def get_my_ip():
+    """ Hackish way to obtain the machine's IP address, will fail for multiple NICs
+    """
+    return socket.gethostbyname_ex(socket.gethostname())
 
 
 def heartbeat(url, interval, max_missed):
@@ -84,6 +89,10 @@ def register_server(conf):
 
 
 def parse_args():
+    """ Implements the CLI activating the server registration via command line configuration
+
+        Use --help to see the available options
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument('--url', required=True, help='The Monitoring service main URL')
     parser.add_argument('--interval', '-i', default=60, type=int,
