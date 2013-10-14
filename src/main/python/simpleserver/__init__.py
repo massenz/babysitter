@@ -3,89 +3,85 @@
 
 import argparse
 import json
-from kazoo.client import KazooClient
+import logging
 import os
 import socket
 import threading
+import time
 
-import requests
-
-
-""" A simple server that sends a hearbeat every --interval seconds to a given monitoring service.
-"""
+from kazoo.client import KazooClient
+from kazoo.interfaces import IHandler
 
 
-
-# TODO: this is just for testing, the real body should be created from a template
-def build_hb_body(interval, max_missed):
-    body = {
-        'server_address': {
-            "ip": get_my_ip(),
-            "hostname": socket.gethostname()
-        },
-        'ttl': interval,
-        'max_missed': max_missed,
-        'type': 'simpleserver',
-        'desc': 'A simple heartbeat server',
-        'port': 9099
-    }
-    return body
-
-
-def get_my_ip():
-    """ Hackish way to obtain the machine's IP address, will fail for multiple NICs
+class NannyState(object):
+    """ A simple server that sends a hearbeat every --interval seconds to a given monitoring
+        service.
     """
-    return socket.gethostbyname_ex(socket.gethostname())
 
+    DEFAULT_TIMEOUT = 10
+    #: timeout for a server connection
 
-def heartbeat(url, interval, max_missed):
-    """ Sends a regular heartbeat to the destination URL
+    ZK_TREE_ROOT = '/monitor/hosts'
+    #: the node where the monitoring subtree is rooted
 
-    @param url: the monitoring server URL
-    @param interval: the interval in seconds to schedule a new heartbeat
-    @param max_missed: the number of times a heartbeat can be missed before the server is
-    """
-    # TODO: both variables should be configuration variables
-    timeout = 5
-    retries = 3
-    while retries:
+    def __init__(self, zk_hosts='localhost:2181', interval=30, suffix=None, port=0):
+        """ Creates the nanny and starts the ZK client and registers this host to be babysat
+
+        @param zk_hosts: a comma-separated list of host:port for the ZooKeeper service
+        @param interval: the interval to send updates to ZK (in seconds)
+        @type interval: int
+        @param suffix: an optional suffix for the hostname to be sent
+        @param port: an optional port number, if this guards a server listening on a specific port
+        @type port: int
+        """
+        self.interval = interval
+        self.port = port
+        self._suffix = suffix
+        self._ip = self._get_my_ip()
+        self._hostname = socket.gethostname() if not suffix else '_'.join([socket.gethostname(),
+                                                                           suffix])
+        self._zk = KazooClient(hosts=zk_hosts, timeout=NannyState.DEFAULT_TIMEOUT)
         try:
-            print 'Sending heartbeat...'
-            headers = {'content-type': 'application/json'}
-            r = requests.post(url, headers=headers,
-                              data=json.dumps(build_hb_body(interval, max_missed)),
-                              timeout=timeout)
-            if not r.status_code == 200:
-                print '[ERROR] Error encountered while pinging babysitter {url}: {error}'.format(
-                    url=url,
-                    error=r.status_code)
-                retries -= 1
-            else:
-                print 'ok'
-                break
-        except requests.exceptions.Timeout:
-            print '[ERROR] Server at {url} did not respond within the given timeout '  \
-                  '[{timeout} seconds]'.format(url=url, timeout=timeout)
-            retries -= 1
-    else:
-        print '[ERROR] Too many failures, giving up'
-        return
-    start_heartbeat(url, interval, max_missed)
+            # TODO: implement the retry logic using Kazoo facilities
+            self._zk.start(timeout=NannyState.DEFAULT_TIMEOUT)
+            self.register()
+        except IHandler.timeout_exception:
+            logging.error('Timeout trying to connect to a ZK ensemble')
+            # TODO: maybe a more graceful exit?
+            exit(1)
 
+    # TODO: this is just for testing, the real body should be created from a template
+    def _build_hb_body(self):
+        body = {
+            'server_address': {
+                "ip": self._ip,
+                "hostname": self._hostname
+            },
+            'ttl': self.interval,
+            'type': 'simpleserver',
+            'desc': 'A simple heartbeat server',
+            'port': self.port
+        }
+        return body
 
-def start_heartbeat(url, interval, max_missed):
-    t = threading.Timer(interval, heartbeat, args=[url, interval, max_missed])
-    t.daemon = True
-    t.start()
+    def register(self):
+        """ Creates a new node for this host in the Zk tree
+        """
+        path = '/'.join([NannyState.ZK_TREE_ROOT, self._hostname])
+        value = json.dumps(self._build_hb_body())
+        try:
+            real_path = self._zk.create(path, value=value, ephemeral=True, makepath=True)
+            logging.info('Server registered with ZK: {}'.format(real_path))
+        except Exception, e:
+            logging.error('Could not create node {}: {}'.format(path, e))
 
+    # TODO: implement the regular node update
 
-def register_server(conf):
-    url = '/'.join([conf.url, REGISTER_URL, '_'.join([socket.gethostname(), conf.suffix])])
-    data = build_hb_body(conf.interval, conf.max_missed)
-    headers = {'content-type': 'application/json'}
-    resp = requests.post(url=url, data=json.dumps(data), headers=headers, timeout=5)
-    if not resp.status_code == 200:
-        raise RuntimeError('Unexpected response from Monitoring server: {}'.format(resp.text))
+    @staticmethod
+    def _get_my_ip():
+        """ Hackish way to obtain the machine's IP address, will fail for multiple NICs
+        """
+        return socket.gethostbyname_ex(socket.gethostname())
 
 
 def parse_args():
@@ -94,32 +90,37 @@ def parse_args():
         Use --help to see the available options
     """
     parser = argparse.ArgumentParser()
-    parser.add_argument('--url', required=True, help='The Monitoring service main URL')
+    parser.add_argument('--hosts', default='localhost:2181',
+                        help='The Monitoring service hosts as a comma-separated list ('
+                             'e.g.: "localhost:2181, 10.10.0.100:2182, monitor.net:2282")')
     parser.add_argument('--interval', '-i', default=60, type=int,
                         help='The interval for each heartbeat to be sent to the Monitoring service'
                              ' (aka TTL)')
-    parser.add_argument('--max_missed', '-f', default=5, type=int,
-                        help='The maximum number of times the Monitor will allow this server '
-                             'to miss its heartbeat, before declaring it unresponsive.  In other '
-                             'words, if this server is unable to send a heartbeat for longer than '
-                             '(max_missed x TTL) seconds, it will be deemed as being down.')
     parser.add_argument('--suffix', '-s',
                         help='A unique suffix to identify uniquely a server, if more than one '
                              'instance is running off the same host (this is obviously only '
-                             'realistic for a dev environment, otherwise the hostname would suffice')
+                             'realistic for a dev/test environment, otherwise the hostname should '
+                             'suffice)')
     return parser.parse_args()
 
 
-if __name__ == '__main__':
+def main():
+    FORMAT = '%(asctime)-15s %(message)s'
+    logging.basicConfig(format=FORMAT, level='DEBUG')
     pid = os.getpid()
-    print 'This Server PID is {pid}'.format(pid=pid)
+    logging.info('This Nanny PID is {pid}'.format(pid=pid))
     conf = parse_args()
     if not conf.suffix:
-        # This is just so we have a unique "hostname" if more than one simpleserver is running on the same VM
+        # This is just so we have a unique "hostname" if more than one simpleserver is
+        # running on the same VM
         # in a real system, we would just use os.gethostname()
-        setattr(conf, 'suffix', pid)
-    print 'Registering server with Monitor service'
-    register_server(conf)
-    print 'Starting heartbeat to {url} every {interval} seconds'.format(url=conf.url,
-                                                                        interval=conf.interval)
-    start_heartbeat('/'.join([conf.url, BEAT_URL]), conf.interval, conf.max_missed)
+        setattr(conf, 'suffix', str(pid))
+    logging.info('Registering server with babysitter service')
+    nanny = NannyState(conf.hosts, conf.interval, conf.suffix)
+    while True:
+        time.sleep(2)
+    logging.info('Terminating - this should also trigger an alert')
+    # TODO: figure out a protocol to indicate this is a planned shutdown
+
+if __name__ == '__main__':
+    main()
