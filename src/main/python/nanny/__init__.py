@@ -6,7 +6,6 @@ import json
 import logging
 import os
 import socket
-import threading
 import time
 
 from kazoo.client import KazooClient
@@ -121,6 +120,7 @@ def main():
         time.sleep(2)
     logging.info('Terminating - this should also trigger an alert')
     # TODO: figure out a protocol to indicate this is a planned shutdown
+
 
 if __name__ == '__main__':
     main()
