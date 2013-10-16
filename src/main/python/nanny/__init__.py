@@ -8,7 +8,7 @@ import os
 import socket
 import time
 
-from kazoo.client import KazooClient
+import kazoo.client
 from kazoo.interfaces import IHandler
 
 
@@ -23,8 +23,13 @@ class NannyState(object):
     ZK_TREE_ROOT = '/monitor/hosts'
     #: the node where the monitoring subtree is rooted
 
-    def __init__(self, zk_hosts='localhost:2181', interval=30, suffix=None, port=0):
+    def __init__(self, server_type, desc=None, zk_hosts='localhost:2181', interval=30,
+                 suffix=None, port=0):
         """ Creates the nanny and starts the ZK client and registers this host to be babysat
+
+        Upon registration (at construction) only the basic details for the server are sent to the
+        ZK service, then, if the ``set_payload()`` is called, the new data is sent to ZK to be
+        associated with the server: this can be done several times over the life of the server.
 
         @param zk_hosts: a comma-separated list of host:port for the ZooKeeper service
         @param interval: the interval to send updates to ZK (in seconds)
@@ -39,13 +44,16 @@ class NannyState(object):
         self._ip = self._get_my_ip()
         self._hostname = socket.gethostname() if not suffix else '_'.join([socket.gethostname(),
                                                                            suffix])
-        self._zk = KazooClient(hosts=zk_hosts, timeout=NannyState.DEFAULT_TIMEOUT)
+        self.server_type = server_type
+        self.desc = desc
+        self._payload = dict()
+        self._zk = kazoo.client.KazooClient(hosts=zk_hosts, timeout=NannyState.DEFAULT_TIMEOUT)
         try:
             # TODO: implement the retry logic using Kazoo facilities
             self._zk.start(timeout=NannyState.DEFAULT_TIMEOUT)
-            self.register()
-        except IHandler.timeout_exception:
-            logging.error('Timeout trying to connect to a ZK ensemble')
+            self._path = self.register()
+        except Exception, e:
+            logging.error('Timeout trying to connect to a ZK ensemble [{}]'.format(e))
             # TODO: maybe a more graceful exit?
             exit(1)
 
@@ -57,30 +65,51 @@ class NannyState(object):
                 "hostname": self._hostname
             },
             'ttl': self.interval,
-            'type': 'simpleserver',
-            'desc': 'A simple heartbeat server',
-            'port': self.port
+            'type': self.server_type,
+            'desc': self.desc,
+            'port': self.port,
+            'payload': self._payload
         }
         return body
+
+    def _get_path_value(self):
+        path = '/'.join([NannyState.ZK_TREE_ROOT, self._hostname])
+        value = json.dumps(self._build_hb_body())
+        return path, value
 
     def register(self):
         """ Creates a new node for this host in the Zk tree
         """
-        path = '/'.join([NannyState.ZK_TREE_ROOT, self._hostname])
-        value = json.dumps(self._build_hb_body())
+        path, value = self._get_path_value()
         try:
             real_path = self._zk.create(path, value=value, ephemeral=True, makepath=True)
             logging.info('Server registered with ZK: {}'.format(real_path))
+            return real_path
         except Exception, e:
             logging.error('Could not create node {}: {}'.format(path, e))
+            raise e
 
     # TODO: implement the regular node update
+    def update(self):
+        pass
 
     @staticmethod
     def _get_my_ip():
         """ Hackish way to obtain the machine's IP address, will fail for multiple NICs
         """
-        return socket.gethostbyname_ex(socket.gethostname())
+        return socket.gethostbyname(socket.gethostname())
+
+    @property
+    def payload(self):
+        return self._payload
+
+    @payload.setter
+    def payload(self, values):
+        self.payload.update(values)
+
+    @payload.deleter
+    def payload(self):
+        del self._payload
 
 
 def parse_args():
@@ -89,6 +118,12 @@ def parse_args():
         Use --help to see the available options
     """
     parser = argparse.ArgumentParser()
+    parser.add_argument('--type', '-t', default='simpleserver',
+                        help='The type of server that is being monitored (useful when providing '
+                             'diagnostics and stats)')
+    parser.add_argument('--desc', '-d', default='A simple server to test monitoring',
+                        help='A brief description, if any, to help with diagnostics and '
+                             'statistics')
     parser.add_argument('--hosts', default='localhost:2181',
                         help='The Monitoring service hosts as a comma-separated list ('
                              'e.g.: "localhost:2181, 10.10.0.100:2182, monitor.net:2282")')
@@ -115,11 +150,15 @@ def main():
         # in a real system, we would just use os.gethostname()
         setattr(conf, 'suffix', str(pid))
     logging.info('Registering server with babysitter service')
-    nanny = NannyState(conf.hosts, conf.interval, conf.suffix)
+    nanny = NannyState('demo', zk_hosts=conf.hosts, interval=conf.interval, suffix=conf.suffix)
+    logging.info('Starting infinite loop, hit Ctrl-C to terminate...')
     while True:
-        time.sleep(2)
-    logging.info('Terminating - this should also trigger an alert')
-    # TODO: figure out a protocol to indicate this is a planned shutdown
+        try:
+            time.sleep(2)
+        except KeyboardInterrupt:
+            # TODO: figure out a protocol to indicate this is a planned shutdown
+            logging.info('Terminating - this should also trigger an alert')
+            break
 
 
 if __name__ == '__main__':

@@ -49,6 +49,10 @@ public class Server {
         return result;
     }
 
+    public String getName() {
+        return serverAddress.getHostname();
+    }
+
     public String getDescription() {
         return description;
     }

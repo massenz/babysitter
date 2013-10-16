@@ -2,7 +2,9 @@ package com.rivermeadow.babysitter.resources;
 
 import com.rivermeadow.babysitter.model.Server;
 import com.rivermeadow.babysitter.spring.BeanConfiguration;
-import com.rivermeadow.babysitter.zookeper.BeatListener;
+import com.rivermeadow.babysitter.zookeper.EvictionListener;
+import com.rivermeadow.babysitter.zookeper.NodesManager;
+import org.apache.zookeeper.KeeperException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
@@ -19,27 +21,45 @@ public class ServerController {
     Logger logger = Logger.getLogger("ServerController");
 
     @Autowired
-    private BeatListener listener;
+    private NodesManager manager;
+    private boolean managerStarted = false;
 
-    @RequestMapping(value = "/register/{id}", method = {RequestMethod.POST},
+    @RequestMapping(value = "/servers/{id}", method = {RequestMethod.POST},
             consumes = "application/json", produces = "text/plain")
     @ResponseBody
-    String register(@PathVariable String id, @RequestBody Server serverData) {
+    String registerServer(@PathVariable String id, @RequestBody Server server) {
         // TODO: use Jackson to create the Server object from the JSON body
-        listener.register(serverData);
+        manager.createServer(id);
         logger.info(String.format("Server %s registered", id));
         return "ok";
     }
 
-    @RequestMapping(value = "/beat", method = {RequestMethod.POST},
-            consumes = "application/json", produces = "text/plain")
+    @RequestMapping(value = "/servers", method = {RequestMethod.GET}, produces = "text/plain")
     @ResponseBody
-    String beat(@RequestBody Server server) {
-        logger.info(String.format("POST heartbeat from %s [%s]", server.getServerType(),
-                server.getServerAddress().getHostname()));
-        listener.updateHeartbeat(server);
-        return "ok";
+    String getAllServers() {
+        StringBuilder response = new StringBuilder();
+        try {
+            if (!managerStarted) {
+                manager.startup();
+                response.append("Server started\n");
+            }
+            // TODO: use JSON to return a list of registered servers
+            response.append(manager.getMonitoredServers().toString());
+            response.append('\n').append("\nStatus: OK");
+            return response.toString();
+        } catch (KeeperException | InterruptedException e) {
+            return "[Error] " + e.getLocalizedMessage();
+        }
     }
+
+    @RequestMapping(value = "/servers/{id}", method = {RequestMethod.DELETE})
+    @ResponseBody
+    String deleteServer(@PathVariable String id) {
+        manager.removeServer(id);
+        return "Server " + id + " removed";
+    }
+
+
 
     public static void main(String[] args) throws Exception {
         SpringApplication.run(new Object[] {ServerController.class, BeanConfiguration.class},
