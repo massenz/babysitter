@@ -1,10 +1,13 @@
 package com.rivermeadow.babysitter.zookeper;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Maps;
 import com.rivermeadow.babysitter.model.Server;
 import com.rivermeadow.babysitter.model.Status;
 import org.apache.zookeeper.*;
 import org.apache.zookeeper.data.Stat;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.io.File;
 import java.io.IOException;
@@ -13,21 +16,62 @@ import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.logging.Logger;
 
-public class NodesManager implements Watcher, EvictionListener, RegistrationListener {
+/**
+ * This is the main interface towards the ZK service and manages the registration and eviction of
+ * servers from the ZK point of view, by registering itself as the 'watcher' for the children of
+ * a "well-known" master node (@link{#HOSTS_PATH}).
+ *
+ * This class does @strong{not} manage the internally-maintained list of servers,
+ * or the alerts if any of the monitored nodes disappears: this is entirely delegated to the
+ * @link{EvictionListener} and @link{RegistrationListener}.
+ *
+ * This class also encapsulates the necessary logic to determine if a change in the watched
+ * children nodes was due to a server being added or removed.
+ *
+ * @author marco
+ */
+public class NodesManager implements Watcher {
 
-    private static final int SESSION_TIMEOUT = 5000;
     private static final String HOSTS_PATH = "/monitor/hosts";
+
     Logger logger = Logger.getLogger("NodesManager");
+
     private ZooKeeper zk;
     private CountDownLatch connectedSignal = new CountDownLatch(1);
-    private Map<String, Server> serverPool = Maps.newHashMap();
+
+    @Autowired
+    EvictionListener evictionListener;
+
+    @Autowired
+    RegistrationListener registrationListener;
+
+    @Autowired
+    ZookeeperConfiguration configuration;
 
     public NodesManager() {
         try {
             // TODO: get the list of zookeper servers from a configuration class
-            connect("localhost");
+            connect(configuration.hosts());
         } catch (IOException | InterruptedException | KeeperException e) {
             logger.severe("Could not connect to Zookeper instance: " + e.getLocalizedMessage());
+        }
+    }
+
+    private void connect(String hosts) throws IOException, InterruptedException, KeeperException {
+        zk = new ZooKeeper(hosts, configuration.timeout(), this);
+        connectedSignal.await();
+    }
+
+    public void startup() throws KeeperException, InterruptedException {
+        List<String> servers = getMonitoredServers();
+        // TODO: go through the list of servers and add the ones that we don't know yet about
+        logger.info(String.format("Nodes Manager Started successfully. There are currently %d " +
+                "servers: %s", servers.size(), servers.toString()));
+    }
+
+    public void shutdown() throws InterruptedException {
+        if (zk != null) {
+            zk.close();
         }
     }
 
@@ -57,53 +101,21 @@ public class NodesManager implements Watcher, EvictionListener, RegistrationList
         }
     }
 
-    private void connect(String hosts) throws IOException, InterruptedException, KeeperException {
-        zk = new ZooKeeper(hosts, SESSION_TIMEOUT, this);
-        connectedSignal.await();
-    }
-
     public List<String> getMonitoredServers() throws KeeperException, InterruptedException {
         return zk.getChildren(HOSTS_PATH, this);
     }
 
-    public void createServer(String name) {
+    public void createServer(String name, Server server) {
         try {
-            zk.create(HOSTS_PATH + '/' + name, null, ZooDefs.Ids.OPEN_ACL_UNSAFE, CreateMode.EPHEMERAL);
-        } catch (KeeperException | InterruptedException e) {
-            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            ObjectMapper mapper = new ObjectMapper();
+            zk.create(HOSTS_PATH + '/' + name, mapper.writeValueAsBytes(server),
+                    ZooDefs.Ids.OPEN_ACL_UNSAFE,
+                    CreateMode.EPHEMERAL);
+            registrationListener.register(server);
+        } catch (KeeperException | InterruptedException | JsonProcessingException e) {
+            logger.severe(String.format("Cannot create server %s entry: %s", name,
+                    e.getLocalizedMessage()));
         }
-    }
-
-    public void startup() throws KeeperException, InterruptedException {
-        List<String> servers = getMonitoredServers();
-        // TODO: go through the list of servers and add the ones that we don't know yet about
-        logger.info(String.format("These are the watched servers: %s", servers.toString()));
-    }
-
-    public void shutdown() throws InterruptedException {
-        if (zk != null) {
-            zk.close();
-        }
-    }
-
-    @Override
-    public Status register(Server server) {
-        // TODO: we're simply adding this server to the list of monitored severs
-        serverPool.put(server.getName(), server);
-        logger.info(String.format("Server %s registered", server.getName()));
-        return Status.createStatus(String.format("Server %s registered",
-                server.getName()));
-    }
-
-    @Override
-    public Status deregister(Server server) {
-        // TODO: we're just removing from the pool, we should alert too
-        if (serverPool.containsKey(server.getName())) {
-            serverPool.remove(server.getName());
-            return Status.createStatus(String.format("Server %s removed from pool - TODO raise "
-                    + "alert!", server.getName()));
-        }
-        return Status.createErrorStatus(String.format("Server %s unknown", server.getName()));
     }
 
     public void removeServer(String id) {

@@ -13,11 +13,15 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.logging.Logger;
 
+
+/**
+ * The Main server controller class to start the application and dispatch requests
+ *
+ * @author marco
+ */
 @Controller
 @EnableAutoConfiguration
 public class ServerController {
-
-    private static final int SESSION_TIMEOUT = 5000;
     Logger logger = Logger.getLogger("ServerController");
 
     @Autowired
@@ -28,10 +32,14 @@ public class ServerController {
             consumes = "application/json", produces = "text/plain")
     @ResponseBody
     String registerServer(@PathVariable String id, @RequestBody Server server) {
-        // TODO: use Jackson to create the Server object from the JSON body
-        manager.createServer(id);
-        logger.info(String.format("Server %s registered", id));
-        return "ok";
+        if (managerStarted) {
+            manager.createServer(id, server);
+            logger.info(String.format("Server %s registered", id));
+            return "ok";
+        } else {
+            return "Service not started yet, cannot register server: obtain list of servers " +
+                    "first" + " (use the /servers endpoint)";
+        }
     }
 
     @RequestMapping(value = "/servers", method = {RequestMethod.GET}, produces = "text/plain")
