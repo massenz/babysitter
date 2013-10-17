@@ -1,5 +1,6 @@
 package com.rivermeadow.babysitter.spring;
 
+import com.rivermeadow.babysitter.alerts.AlertManager;
 import com.rivermeadow.babysitter.zookeper.EvictionListener;
 import com.rivermeadow.babysitter.zookeper.NodesManager;
 import com.rivermeadow.babysitter.zookeper.RegistrationListener;
@@ -19,28 +20,35 @@ import org.springframework.context.annotation.Scope;
 @Configuration
 public class BeanConfiguration {
 
+    AlertManager alertManager;
+
     @Bean
     @Scope("singleton")
-    NodesManager getNodesManager() {
-        return new NodesManager();
+    ZookeeperConfiguration zkConfiguration() {
+        return new ZookeeperConfiguration();
+    }
+
+    @Bean
+    @Scope("singleton")
+    NodesManager nodesManager() {
+        return new NodesManager(zkConfiguration());
     }
 
     @Bean
     @Scope("singleton")
     EvictionListener evictionListener() {
-        return null;
+        if (alertManager == null) {
+            alertManager = new AlertManager();
+        }
+        return alertManager;
     }
 
     @Bean
     @Scope("singleton")
     RegistrationListener registrationListener() {
-        return null;
+        if (alertManager == null) {
+            alertManager = new AlertManager();
+        }
+        return alertManager;
     }
-
-    @Bean
-    @Scope("singleton")
-    ZookeeperConfiguration configuration() {
-        return new ZookeeperConfiguration();
-    }
-
 }

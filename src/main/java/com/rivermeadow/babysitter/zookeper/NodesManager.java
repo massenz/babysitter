@@ -2,17 +2,13 @@ package com.rivermeadow.babysitter.zookeper;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.collect.Maps;
 import com.rivermeadow.babysitter.model.Server;
-import com.rivermeadow.babysitter.model.Status;
 import org.apache.zookeeper.*;
 import org.apache.zookeeper.data.Stat;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import java.io.File;
 import java.io.IOException;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.logging.Logger;
 
@@ -31,9 +27,6 @@ import java.util.logging.Logger;
  * @author marco
  */
 public class NodesManager implements Watcher {
-
-    private static final String HOSTS_PATH = "/monitor/hosts";
-
     Logger logger = Logger.getLogger("NodesManager");
 
     private ZooKeeper zk;
@@ -45,20 +38,21 @@ public class NodesManager implements Watcher {
     @Autowired
     RegistrationListener registrationListener;
 
-    @Autowired
-    ZookeeperConfiguration configuration;
+    ZookeeperConfiguration zkConfiguration;
 
-    public NodesManager() {
+    @Autowired
+    public NodesManager(ZookeeperConfiguration zkConfiguration) {
+        this.zkConfiguration = zkConfiguration;
         try {
-            // TODO: get the list of zookeper servers from a configuration class
-            connect(configuration.hosts());
+            // TODO: get the list of zookeper servers from a zkConfiguration class
+            connect(zkConfiguration.hosts());
         } catch (IOException | InterruptedException | KeeperException e) {
             logger.severe("Could not connect to Zookeper instance: " + e.getLocalizedMessage());
         }
     }
 
     private void connect(String hosts) throws IOException, InterruptedException, KeeperException {
-        zk = new ZooKeeper(hosts, configuration.timeout(), this);
+        zk = new ZooKeeper(hosts, zkConfiguration.timeout(), this);
         connectedSignal.await();
     }
 
@@ -88,7 +82,7 @@ public class NodesManager implements Watcher {
                 break;
             case NodeChildrenChanged:
                 try {
-                    List<String> servers = zk.getChildren(HOSTS_PATH, this);
+                    List<String> servers = zk.getChildren(zkConfiguration.base_path(), this);
                     // TODO: go through the list of servers and add the ones that we don't know yet about
                     logger.info(String.format("These are the watched servers: %s", servers.toString()));
                 } catch (KeeperException | InterruptedException e) {
@@ -102,13 +96,13 @@ public class NodesManager implements Watcher {
     }
 
     public List<String> getMonitoredServers() throws KeeperException, InterruptedException {
-        return zk.getChildren(HOSTS_PATH, this);
+        return zk.getChildren(zkConfiguration.base_path(), this);
     }
 
     public void createServer(String name, Server server) {
         try {
             ObjectMapper mapper = new ObjectMapper();
-            zk.create(HOSTS_PATH + '/' + name, mapper.writeValueAsBytes(server),
+            zk.create(zkConfiguration.base_path() + '/' + name, mapper.writeValueAsBytes(server),
                     ZooDefs.Ids.OPEN_ACL_UNSAFE,
                     CreateMode.EPHEMERAL);
             registrationListener.register(server);
@@ -120,7 +114,7 @@ public class NodesManager implements Watcher {
 
     public void removeServer(String id) {
         try {
-            String path = HOSTS_PATH + "/" + id;
+            String path = zkConfiguration.base_path() + "/" + id;
             Stat stat = zk.exists(path, false);
             if (stat == null){
                 throw new IllegalStateException(String.format("The server %s does not exist", id));
