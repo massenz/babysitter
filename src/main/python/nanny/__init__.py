@@ -39,6 +39,17 @@ class MonitoredServer(object):
     """
 
     def __init__(self, server_type, desc=None, port=0):
+        """
+        @param server_type: the type of server, for the alert service to take specific actions
+        depending on the type of server unexpectedly failing
+        @type server_type: str
+        @param desc: a brief description of this server, mostly to include in human-readable
+        alert messages
+        @type desc: str
+        @param port: the port this server is listening to, if applicable
+        @type port: int
+        @rtype : MonitoredServer
+        """
         self.server_type = server_type
         self.description = desc
         self._ip = self._get_my_ip()
@@ -84,7 +95,10 @@ class MonitoredServer(object):
             This method can be overridden by derived classes, however should
         """
         res = self._build_hb_body()
-        res['payload'] = self.payload
+        if self.payload:
+            res['payload'] = self.payload
+        elif 'payload' in res:
+            res.pop('payload')
         return res
 
 
@@ -111,12 +125,10 @@ class NannyState(object):
         self._suffix = suffix
         self._zk = kazoo.client.KazooClient(hosts=zk_hosts, timeout=NannyState.DEFAULT_TIMEOUT)
         try:
-            # TODO: implement the retry logic using Kazoo facilities
             self._zk.start(timeout=NannyState.DEFAULT_TIMEOUT)
         except Exception as e:
             logging.error('Timeout trying to connect to a ZK ensemble [{}]'.format(e))
-            # TODO: maybe a more graceful exit?
-            exit(1)
+            raise RuntimeError('No Zookeeper ensemble available at {}'.format(zk_hosts))
 
     def _build_fullpath(self, server):
         node_name = '_'.join([server.hostname, self._suffix]) if self._suffix is not None else \
