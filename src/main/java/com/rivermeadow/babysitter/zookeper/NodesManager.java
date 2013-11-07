@@ -46,9 +46,9 @@ public class NodesManager implements Watcher {
 
     @PostConstruct
     public void connectZookeeper() {
-        logger.debug("Node Manager started, connecting to ZK hosts: " + zkConfiguration.hosts());
+        logger.debug("Node Manager started, connecting to ZK hosts: " + zkConfiguration.getHosts());
         try {
-            connect(zkConfiguration.hosts());
+            connect(zkConfiguration.getHosts());
             logger.debug("Connected - Session ID: " + zk.getSessionId());
         } catch (IOException | InterruptedException | KeeperException e) {
             logger.error("Could not connect to Zookeper instance", e);
@@ -56,7 +56,7 @@ public class NodesManager implements Watcher {
     }
 
     private void connect(String hosts) throws IOException, InterruptedException, KeeperException {
-        zk = new ZooKeeper(hosts, zkConfiguration.timeout(), this);
+        zk = new ZooKeeper(hosts, zkConfiguration.getSessionTimeout(), this);
         connectedSignal.await();
     }
 
@@ -86,7 +86,7 @@ public class NodesManager implements Watcher {
                 break;
             case NodeChildrenChanged:
                 try {
-                    List<String> servers = zk.getChildren(zkConfiguration.base_path(), this);
+                    List<String> servers = zk.getChildren(zkConfiguration.getBasePath(), this);
                     // TODO: go through the list of servers and add the ones that we don't know yet about
                     logger.debug(String.format("Server modified. Watched servers now: %s",
                             servers.toString()));
@@ -102,27 +102,26 @@ public class NodesManager implements Watcher {
     }
 
     public List<String> getMonitoredServers() throws KeeperException, InterruptedException {
-        return zk.getChildren(zkConfiguration.base_path(), this);
+        return zk.getChildren(zkConfiguration.getBasePath(), this);
     }
 
     public String getServerInfo(String name) throws KeeperException, InterruptedException {
-        // TODO: make a 'pluggable' servers state manager (in-memory to start with,
-        // eventually with persistence to a DB)
+        // TODO: make a 'pluggable' servers state manager
         // Right now, it just goes to ZK and gets the data out
-        StringBuilder sb = new StringBuilder(zkConfiguration.base_path()).append(File
-                .separatorChar).append(name);
+        String fullPath = zkConfiguration.getBasePath() + File.separatorChar + name;
         Stat stat = new Stat();
-        byte[] data = zk.getData(sb.toString(), false, stat);
+        byte[] data = zk.getData(fullPath, false, stat);
         String serverInfo = new String(data);
-        logger.info("this is the data: " + serverInfo);
-        logger.info("this is the stats: " + stat.toString());
+        logger.debug(String.format("%s :: %s", name, serverInfo));
+        logger.debug("Version: " + stat.getVersion());
+        // TODO: de-serialize JSON to Server object
         return serverInfo;
     }
 
     public void createServer(String name, Server server) {
         try {
             ObjectMapper mapper = new ObjectMapper();
-            zk.create(zkConfiguration.base_path() + '/' + name, mapper.writeValueAsBytes(server),
+            zk.create(zkConfiguration.getBasePath() + '/' + name, mapper.writeValueAsBytes(server),
                     ZooDefs.Ids.OPEN_ACL_UNSAFE,
                     CreateMode.EPHEMERAL);
             registrationListener.register(server);
@@ -134,7 +133,7 @@ public class NodesManager implements Watcher {
 
     public void removeServer(String id) {
         try {
-            String path = zkConfiguration.base_path() + "/" + id;
+            String path = zkConfiguration.getBasePath() + "/" + id;
             Stat stat = zk.exists(path, false);
             if (stat == null){
                 throw new IllegalStateException(String.format("The server %s does not exist", id));

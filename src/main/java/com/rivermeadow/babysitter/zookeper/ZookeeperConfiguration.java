@@ -2,6 +2,7 @@ package com.rivermeadow.babysitter.zookeper;
 
 import org.apache.log4j.Logger;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
 /**
@@ -11,31 +12,43 @@ import org.springframework.stereotype.Component;
  *
  */
 @Component
+@ConfigurationProperties(name = "zookeeper")
 public class ZookeeperConfiguration {
-    private static final Logger logger = Logger.getLogger(ZookeeperConfiguration.class);
 
-    @Value("${zookeeper.hosts}")
     String hosts;
-
-    @Value("${zookeeper.base_path}")
     String basePath;
-
-    @Value("${zookeeper.session_timeout}")
     Integer sessionTimeout;
+    String configPath;
 
-    public ZookeeperConfiguration() {
-        logger.debug("Zookeeper configs: " + hosts + " :: " + basePath);
+    public String getBasePath() {
+        return basePath;
     }
 
-    public String hosts() {
+    public void setBasePath(String basePath) {
+        this.basePath = basePath;
+    }
+
+    public String getConfigPath() {
+        return configPath;
+    }
+
+    public void setConfigPath(String configPath) {
+        this.configPath = configPath;
+    }
+
+    public String getHosts() {
         return hosts;
     }
 
-    public int timeout() {
+    public void setHosts(String hosts) {
+        this.hosts = hosts;
+    }
+
+    public Integer getSessionTimeout() {
         return sessionTimeout;
     }
 
-    public String base_path() {
-        return basePath;
+    public void setSessionTimeout(Integer sessionTimeout) {
+        this.sessionTimeout = sessionTimeout;
     }
 }
