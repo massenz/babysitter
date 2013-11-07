@@ -9,9 +9,12 @@ import com.rivermeadow.babysitter.zookeper.RegistrationListener;
 import java.util.Set;
 
 /**
- * TODO: this class will be an abstract class
+ * TODO: this class should be an abstract class
  *
- * Encapsulates
+ * Encapsulates the behavior of an alert manager to respond to event such as a monitored
+ * server unexpectedly de-registering from ZK.
+ *
+ * A number of (pluggable) adapters will be alerted when such an event occurs
  *
  * @author marco
  *
@@ -34,7 +37,6 @@ public class AlertManager implements EvictionListener, RegistrationListener {
     @Override
     public Status register(Server server) {
         if (registeredServers.add(server)) {
-
             return Status.createStatus(String.format("Server %s added", server.getName()));
         } else {
             return Status.createErrorStatus(String.format("Server %s was already registered " +

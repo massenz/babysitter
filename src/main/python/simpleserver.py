@@ -66,8 +66,7 @@ def main():
     conf = parse_args()
     if not conf.suffix:
         # This is just so we have a unique "hostname" if more than one simpleserver is
-        # running on the same VM
-        # in a real system, we would just use os.gethostname()
+        # running on the same VM: in a real system, we would just use the host name
         setattr(conf, 'suffix', str(pid))
     logging.info('Registering server with babysitter service')
     service = nanny.NannyState(zk_hosts=conf.hosts, suffix=conf.suffix)

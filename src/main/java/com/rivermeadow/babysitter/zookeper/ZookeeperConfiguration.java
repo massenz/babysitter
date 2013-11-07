@@ -1,8 +1,8 @@
 package com.rivermeadow.babysitter.zookeper;
 
-import java.io.IOException;
-import java.util.Properties;
-import java.util.logging.Logger;
+import org.apache.log4j.Logger;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
 
 /**
  * Manages the ZK zkConfiguration options, by reading them from a file
@@ -10,36 +10,32 @@ import java.util.logging.Logger;
  * @author marco
  *
  */
+@Component
 public class ZookeeperConfiguration {
-    private static final Logger logger = Logger.getLogger(ZookeeperConfiguration.class
-            .getCanonicalName());
+    private static final Logger logger = Logger.getLogger(ZookeeperConfiguration.class);
 
-    private static final String ZK_CONFIG_FILE = "/zookeeper_config.properties";
-    private static final String ZK_HOSTS = "zookeper.hosts";
-    public static final String ZK_TIMEOUT = "zookeeper.session_timeout";
-    private static final String ZK_ROOT = "zookeeper.base_path";
+    @Value("${zookeeper.hosts}")
+    String hosts;
 
-    Properties zkProps = new Properties();
+    @Value("${zookeeper.base_path}")
+    String basePath;
+
+    @Value("${zookeeper.session_timeout}")
+    Integer sessionTimeout;
 
     public ZookeeperConfiguration() {
-        try {
-            zkProps.load(getClass().getResourceAsStream(ZK_CONFIG_FILE));
-        } catch (IOException e) {
-            logger.severe("Could not find ZK zkConfiguration properties, " +
-                    "this means nothing here will probably work at all. The error was: " +
-                    e.getLocalizedMessage());
-        }
+        logger.debug("Zookeeper configs: " + hosts + " :: " + basePath);
     }
 
     public String hosts() {
-        return zkProps.getProperty(ZK_HOSTS);
+        return hosts;
     }
 
     public int timeout() {
-        return Integer.parseInt(zkProps.getProperty(ZK_TIMEOUT));
+        return sessionTimeout;
     }
 
     public String base_path() {
-        return zkProps.getProperty(ZK_ROOT);
+        return basePath;
     }
 }

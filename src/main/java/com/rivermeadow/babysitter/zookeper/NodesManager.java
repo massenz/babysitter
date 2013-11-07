@@ -3,14 +3,16 @@ package com.rivermeadow.babysitter.zookeper;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rivermeadow.babysitter.model.Server;
+import org.apache.log4j.Logger;
 import org.apache.zookeeper.*;
 import org.apache.zookeeper.data.Stat;
 import org.springframework.beans.factory.annotation.Autowired;
 
+import javax.annotation.PostConstruct;
+import java.io.File;
 import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
-import java.util.logging.Logger;
 
 /**
  * This is the main interface towards the ZK service and manages the registration and eviction of
@@ -27,7 +29,7 @@ import java.util.logging.Logger;
  * @author marco
  */
 public class NodesManager implements Watcher {
-    Logger logger = Logger.getLogger("NodesManager");
+    Logger logger = Logger.getLogger(NodesManager.class);
 
     private ZooKeeper zk;
     private CountDownLatch connectedSignal = new CountDownLatch(1);
@@ -38,16 +40,18 @@ public class NodesManager implements Watcher {
     @Autowired
     RegistrationListener registrationListener;
 
+    @Autowired
     ZookeeperConfiguration zkConfiguration;
 
-    @Autowired
-    public NodesManager(ZookeeperConfiguration zkConfiguration) {
-        this.zkConfiguration = zkConfiguration;
+
+    @PostConstruct
+    public void connectZookeeper() {
+        logger.debug("Node Manager started, connecting to ZK hosts: " + zkConfiguration.hosts());
         try {
-            // TODO: get the list of zookeper servers from a zkConfiguration class
             connect(zkConfiguration.hosts());
+            logger.debug("Connected - Session ID: " + zk.getSessionId());
         } catch (IOException | InterruptedException | KeeperException e) {
-            logger.severe("Could not connect to Zookeper instance: " + e.getLocalizedMessage());
+            logger.error("Could not connect to Zookeper instance", e);
         }
     }
 
@@ -71,7 +75,7 @@ public class NodesManager implements Watcher {
 
     @Override
     public void process(WatchedEvent watchedEvent) {
-        logger.fine(String.format("NodeManager watched event [%s] for %s",
+        logger.trace(String.format("NodeManager watched event [%s] for %s",
                 watchedEvent.getType(), watchedEvent.getPath()));
         switch (watchedEvent.getType()) {
             case None:
@@ -84,19 +88,35 @@ public class NodesManager implements Watcher {
                 try {
                     List<String> servers = zk.getChildren(zkConfiguration.base_path(), this);
                     // TODO: go through the list of servers and add the ones that we don't know yet about
-                    logger.info(String.format("These are the watched servers: %s", servers.toString()));
+                    logger.debug(String.format("Server modified. Watched servers now: %s",
+                            servers.toString()));
                 } catch (KeeperException | InterruptedException e) {
-                    logger.throwing(this.getClass().getCanonicalName(), "process", e);
+                    logger.error(String.format("There was an error retrieving the list of " +
+                            "servers [%s]", e.getLocalizedMessage()), e);
                 }
                 break;
             default:
-                logger.warning(String.format("Not an expected event: %s; for %s",
+                logger.warn(String.format("Not an expected event: %s; for %s",
                         watchedEvent.getType(), watchedEvent.getPath()));
         }
     }
 
     public List<String> getMonitoredServers() throws KeeperException, InterruptedException {
         return zk.getChildren(zkConfiguration.base_path(), this);
+    }
+
+    public String getServerInfo(String name) throws KeeperException, InterruptedException {
+        // TODO: make a 'pluggable' servers state manager (in-memory to start with,
+        // eventually with persistence to a DB)
+        // Right now, it just goes to ZK and gets the data out
+        StringBuilder sb = new StringBuilder(zkConfiguration.base_path()).append(File
+                .separatorChar).append(name);
+        Stat stat = new Stat();
+        byte[] data = zk.getData(sb.toString(), false, stat);
+        String serverInfo = new String(data);
+        logger.info("this is the data: " + serverInfo);
+        logger.info("this is the stats: " + stat.toString());
+        return serverInfo;
     }
 
     public void createServer(String name, Server server) {
@@ -107,8 +127,8 @@ public class NodesManager implements Watcher {
                     CreateMode.EPHEMERAL);
             registrationListener.register(server);
         } catch (KeeperException | InterruptedException | JsonProcessingException e) {
-            logger.severe(String.format("Cannot create server %s entry: %s", name,
-                    e.getLocalizedMessage()));
+            logger.error(String.format("Cannot create server %s entry: %s", name,
+                    e.getLocalizedMessage()), e);
         }
     }
 
@@ -121,8 +141,8 @@ public class NodesManager implements Watcher {
             }
             zk.delete(path, stat.getVersion());
         } catch (KeeperException | InterruptedException e) {
-            logger.severe(String.format("Cannot remove server %s: %s", id,
-                    e.getLocalizedMessage()));
+            logger.error(String.format("Cannot remove server %s: %s", id, e.getLocalizedMessage()
+            ), e);
         }
     }
 }
