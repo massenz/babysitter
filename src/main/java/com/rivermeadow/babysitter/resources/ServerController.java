@@ -1,5 +1,7 @@
 package com.rivermeadow.babysitter.resources;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rivermeadow.babysitter.model.Server;
 import com.rivermeadow.babysitter.spring.BeanConfiguration;
 import com.rivermeadow.babysitter.zookeper.NodesManager;
@@ -67,12 +69,14 @@ public class ServerController {
     String getServer(@PathVariable String id) {
         logger.debug("Retrieving data for server " + id);
         try {
-            return nodesManager.getServerInfo(id);
-        } catch (KeeperException | InterruptedException e) {
-            logger.error(String.format("Error occurred retrieving server %s: %s", id,
-                    e.getLocalizedMessage()), e);
-            return String.format("Error occurred retrieving server %s: %s", id,
+            Server server = nodesManager.getServerInfo(id);
+            ObjectMapper mapper = new ObjectMapper();
+            return mapper.writeValueAsString(server);
+        } catch (KeeperException | InterruptedException | JsonProcessingException e) {
+            String msg = String.format("Error occurred retrieving server %s: %s", id,
                     e.getLocalizedMessage());
+            logger.error(msg, e);
+            return msg;
         }
     }
 

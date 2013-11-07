@@ -38,22 +38,27 @@ class MonitoredServer(object):
         that the information is of interest/use to the monitoring service(s)).
     """
 
-    def __init__(self, server_type, desc=None, port=0):
+    def __init__(self, server_type, server_name=None, desc=None, port=0):
         """
         @param server_type: the type of server, for the alert service to take specific actions
-        depending on the type of server unexpectedly failing
+                depending on the type of server unexpectedly failing
         @type server_type: str
+
+        @param server_name: the name of the server, use hostname by default if None
+
         @param desc: a brief description of this server, mostly to include in human-readable
-        alert messages
+                alert messages
         @type desc: str
+
         @param port: the port this server is listening to, if applicable
         @type port: int
+
         @rtype : MonitoredServer
         """
         self.server_type = server_type
         self.description = desc
         self._ip = self._get_my_ip()
-        self.hostname = socket.gethostname()
+        self.hostname = server_name or socket.gethostname()
         self.port = port
         self._payload = dict()
 

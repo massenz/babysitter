@@ -1,0 +1,11 @@
+{
+    "server_address": {
+        "ip": "72.125.63.10",
+        "hostname": "fake.domain"
+    },
+    "type": "empty",
+    "port": 0,
+    "payload": {
+    },
+    "desc": "empty payload"
+}

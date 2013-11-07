@@ -1,0 +1,9 @@
+{
+    "server_address": {
+        "ip": "10.10.121.235",
+        "hostname": "Marcos-MacBook-Pro.local"
+    },
+    "type": "no_payload",
+    "port": 80,
+    "desc": "A server without payload"
+}

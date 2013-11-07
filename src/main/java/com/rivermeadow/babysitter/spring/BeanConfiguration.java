@@ -1,6 +1,8 @@
 package com.rivermeadow.babysitter.spring;
 
 import com.rivermeadow.babysitter.alerts.AlertManager;
+import com.rivermeadow.babysitter.alerts.Pager;
+import com.rivermeadow.babysitter.alerts.mandrill.MandrillEmailAlertPager;
 import com.rivermeadow.babysitter.zookeper.EvictionListener;
 import com.rivermeadow.babysitter.zookeper.NodesManager;
 import com.rivermeadow.babysitter.zookeper.RegistrationListener;
@@ -32,6 +34,12 @@ public class BeanConfiguration {
 
     AlertManager alertManager;
 
+    @Value("${mandrill.api_key}")
+    String apiKey;
+
+    @Value("${mandrill.email_template.location}")
+    String templateLocation;
+
     @Bean
     @Scope("singleton")
     ZookeeperConfiguration zkConfiguration() {
@@ -44,21 +52,24 @@ public class BeanConfiguration {
         return new NodesManager();
     }
 
-    @Bean
-    @Scope("singleton")
-    EvictionListener evictionListener() {
+    public AlertManager getAlertManager() {
         if (alertManager == null) {
             alertManager = new AlertManager();
+            // TODO: this should actually be driven by a configuration file or even auto-discovery
+            alertManager.addPager(new MandrillEmailAlertPager(apiKey, templateLocation));
         }
         return alertManager;
     }
 
     @Bean
     @Scope("singleton")
+    EvictionListener evictionListener() {
+        return getAlertManager();
+    }
+
+    @Bean
+    @Scope("singleton")
     RegistrationListener registrationListener() {
-        if (alertManager == null) {
-            alertManager = new AlertManager();
-        }
-        return alertManager;
+        return getAlertManager();
     }
 }

@@ -39,7 +39,7 @@ class TestNannyState(unittest.TestCase):
         self.hostname = socket.gethostname()
         self.ip = socket.gethostbyname(socket.gethostname())
         self.path = '/'.join([nanny.NannyState.ZK_TREE_ROOT, self.hostname])
-        self._server = nanny.MonitoredServer('test', 'A unit test server')
+        self._server = nanny.MonitoredServer('test', self.hostname, 'A unit test server')
 
     @mock.patch('kazoo.client.KazooClient')
     def test_register(self, mock_client):

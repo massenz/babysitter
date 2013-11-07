@@ -29,6 +29,7 @@
 import argparse
 import logging
 import os
+import socket
 import time
 import nanny
 
@@ -61,18 +62,21 @@ def parse_args():
 def main():
     fmt = '%(asctime)-15s %(message)s'
     logging.basicConfig(format=fmt, level='DEBUG')
-    pid = os.getpid()
-    logging.info('This Nanny PID is {pid}'.format(pid=pid))
     conf = parse_args()
-    if not conf.suffix:
-        # This is just so we have a unique "hostname" if more than one simpleserver is
-        # running on the same VM: in a real system, we would just use the host name
-        setattr(conf, 'suffix', str(pid))
-    logging.info('Registering server with babysitter service')
+
+    # This is just so we have a unique "hostname" if more than one simpleserver is
+    # running on the same VM: in a real system, we would just use the host name
+    hostname = '_'.join([socket.gethostname(), conf.suffix or str(os.getpid())])
+
+    # Get the ZK registration service going:
     service = nanny.NannyState(zk_hosts=conf.hosts, suffix=conf.suffix)
-    logging.info('Starting infinite loop, hit Ctrl-C to terminate...')
-    server = nanny.MonitoredServer(conf.type, conf.desc)
+
+    # Create a server instance and register it with ZK
+    server = nanny.MonitoredServer(conf.type, hostname, conf.desc)
+    logging.info('Registering server {name} with babysitter service'.format(name=server.hostname))
     service.register(server)
+
+    logging.info('Starting infinite loop, hit Ctrl-C to terminate...')
     while True:
         try:
             time.sleep(conf.interval)

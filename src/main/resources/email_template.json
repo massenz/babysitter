@@ -1,0 +1,15 @@
+{
+    "key": "${api_key}",
+    "message": {
+    "html": "<h3>{0}</h3><p>{1}</p><h3>Details</h3><p>{2}</p>",
+    "subject": "Server Failure Alert",
+    "from_email": "alerts@rivermeadow.com",
+    "from_name": "RiverMeadow Alerting Service (babysitter)",
+    "to": [
+        {
+            "email": "marco@rivermeadow.com",
+            "name": "Marco"
+        }
+    ]
+    }
+}
