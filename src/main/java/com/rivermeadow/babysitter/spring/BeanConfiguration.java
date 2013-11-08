@@ -2,6 +2,7 @@ package com.rivermeadow.babysitter.spring;
 
 import com.rivermeadow.babysitter.alerts.AlertManager;
 import com.rivermeadow.babysitter.alerts.Pager;
+import com.rivermeadow.babysitter.alerts.autoscale.AutoscalingPager;
 import com.rivermeadow.babysitter.alerts.mandrill.MandrillEmailAlertPager;
 import com.rivermeadow.babysitter.zookeper.EvictionListener;
 import com.rivermeadow.babysitter.zookeper.NodesManager;
@@ -34,11 +35,15 @@ public class BeanConfiguration {
 
     AlertManager alertManager;
 
+    // TODO: these configurations really do not belong here
     @Value("${mandrill.api_key}")
     String apiKey;
 
     @Value("${mandrill.email_template.location}")
     String templateLocation;
+
+    @Value("${autoscale.process}")
+    String autoscaleProcess;
 
     @Bean
     @Scope("singleton")
@@ -57,6 +62,7 @@ public class BeanConfiguration {
             alertManager = new AlertManager();
             // TODO: this should actually be driven by a configuration file or even auto-discovery
             alertManager.addPager(new MandrillEmailAlertPager(apiKey, templateLocation));
+            alertManager.addPager(new AutoscalingPager(autoscaleProcess));
         }
         return alertManager;
     }

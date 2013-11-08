@@ -2,6 +2,7 @@ package com.rivermeadow.babysitter.alerts.mandrill;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import com.rivermeadow.babysitter.alerts.Pager;
 import com.rivermeadow.babysitter.model.Server;
 import org.apache.http.HttpResponse;
@@ -89,9 +90,10 @@ public class MandrillEmailAlertPager implements Pager {
                 server.getServerAddress().getHostname(),
                 server.getServerAddress().getIp());
         String summary = String.format("Server %s unexpectedly failed to communicate with the " +
-                "monitoring service at %s: last known payload was: %s",
+                "monitoring service at %s: last known payload was:<br><pre>%s</pre>",
                 server.getServerAddress().getHostname(), new Date(), server.getData());
-        String details = mapper.writeValueAsString(server);
+        String details = mapper.enable(SerializationFeature.INDENT_OUTPUT)
+                               .writeValueAsString(server);
         return MessageFormat.format(htmlBody, title, summary, details);
     }
 }
