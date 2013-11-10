@@ -1,16 +1,14 @@
 package com.rivermeadow.babysitter.model;
 
-import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.Test;
 
 import java.io.IOException;
 
+import static junit.framework.Assert.assertEquals;
 import static junit.framework.Assert.assertNotNull;
 
 /**
- * TODO: enter class description here
- *
  * @author marco
  *
  */
@@ -32,11 +30,12 @@ public class ServerAddressTest {
 
         ObjectMapper mapper = new ObjectMapper();
         ServerAddress a2 = new ServerAddress("mordor", "192.168.1.50");
-        mapper.writeValue(System.out, a2);
+        assertEquals(address, mapper.writeValueAsString(a2));
         ServerAddress addr = mapper.readValue(address, ServerAddress.class);
         assertNotNull(addr);
         Server server = mapper.readValue(json, Server.class);
         assertNotNull(server);
-
+        assertEquals("192.168.2.53", server.getServerAddress().getIp());
+        assertEquals("simpleserver", server.getServerType());
     }
 }

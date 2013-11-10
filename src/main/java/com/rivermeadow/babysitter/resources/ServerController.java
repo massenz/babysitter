@@ -1,17 +1,17 @@
 package com.rivermeadow.babysitter.resources;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rivermeadow.babysitter.model.Server;
 import com.rivermeadow.babysitter.spring.BeanConfiguration;
 import com.rivermeadow.babysitter.zookeper.NodesManager;
-import com.rivermeadow.babysitter.zookeper.ZookeeperConfiguration;
+import org.apache.log4j.Logger;
 import org.apache.zookeeper.KeeperException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.logging.Logger;
 
 
 /**
@@ -22,24 +22,28 @@ import java.util.logging.Logger;
 @Controller
 @EnableAutoConfiguration
 public class ServerController {
-    Logger logger = Logger.getLogger("ServerController");
+    private static final Logger logger = Logger.getLogger(ServerController.class);
+
+    NodesManager nodesManager;
 
     @Autowired
-    private NodesManager nodesManager;
-    private boolean managerStarted = false;
+    public ServerController(NodesManager nodesManager) {
+        this.nodesManager = nodesManager;
+        try {
+            this.nodesManager.startup();
+        } catch (KeeperException | InterruptedException e) {
+            logger.error("Could not start NodesManager: " + e.getLocalizedMessage());
+            throw new RuntimeException(e);
+        }
+    }
 
     @RequestMapping(value = "/servers/{id}", method = {RequestMethod.POST},
             consumes = "application/json", produces = "text/plain")
     @ResponseBody
     String registerServer(@PathVariable String id, @RequestBody Server server) {
-        if (managerStarted) {
-            nodesManager.createServer(id, server);
-            logger.info(String.format("Server %s registered", id));
-            return "ok";
-        } else {
-            return "Service not started yet, cannot register server: obtain list of servers " +
-                    "first" + " (use the /servers endpoint)";
-        }
+        nodesManager.createServer(id, server);
+        logger.info(String.format("Server %s registered", id));
+        return "ok";
     }
 
     @RequestMapping(value = "/servers", method = {RequestMethod.GET}, produces = "text/plain")
@@ -47,17 +51,32 @@ public class ServerController {
     String getAllServers() {
         StringBuilder response = new StringBuilder();
         try {
-            if (!managerStarted) {
-                nodesManager.startup();
-                response.append("Server started\n");
-                managerStarted = true;
-            }
-            // TODO: use JSON to return a list of registered servers
-            response.append(nodesManager.getMonitoredServers().toString());
+            String content = nodesManager.getMonitoredServers().toString();
+            logger.debug("Getting all servers: " + content);
+            response.append(content);
             response.append('\n').append("\nStatus: OK");
             return response.toString();
         } catch (KeeperException | InterruptedException e) {
             return "[Error] " + e.getLocalizedMessage();
+        }
+    }
+
+    // NOTE: the RegEx pattern is necessary to cope with Spring's PathVariable stupidity
+    //   without it, it would "swallow" anything after a `.` (perfectly valid in a URL param)
+    //   See: http://stackoverflow.com/questions/16332092/spring-mvc-pathvariable-with-dot-is-getting-truncated
+    @RequestMapping(value = "/servers/{id:.+}", method = {RequestMethod.GET})
+    @ResponseBody
+    String getServer(@PathVariable String id) {
+        logger.debug("Retrieving data for server " + id);
+        try {
+            Server server = nodesManager.getServerInfo(id);
+            ObjectMapper mapper = new ObjectMapper();
+            return mapper.writeValueAsString(server);
+        } catch (KeeperException | InterruptedException | JsonProcessingException e) {
+            String msg = String.format("Error occurred retrieving server %s: %s", id,
+                    e.getLocalizedMessage());
+            logger.error(msg, e);
+            return msg;
         }
     }
 
@@ -68,10 +87,12 @@ public class ServerController {
         return "Server " + id + " removed";
     }
 
-
-
     public static void main(String[] args) throws Exception {
-        SpringApplication.run(new Object[] {ServerController.class, BeanConfiguration.class},
-                args);
+        // TODO: inject correct major.minor version and generated build no.
+        logger.debug(String.format("Starting Babysitter Server - rev. %d.%d.%d", 0, 1, 1234));
+        SpringApplication.run(new Object[]{
+                ServerController.class,
+                BeanConfiguration.class
+        }, args);
     }
 }

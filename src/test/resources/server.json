@@ -1,0 +1,13 @@
+{
+    "server_address": {
+        "ip": "192.168.1.61",
+        "hostname": "Marcos-MacBook-Pro.local"
+    },
+    "type": "simpleserver",
+    "port": 0,
+    "payload": {
+        "current_time": "Wed Nov 6 23:30:53 2013",
+        "state": "running"
+    },
+    "desc": "A simple server to test monitoring"
+}

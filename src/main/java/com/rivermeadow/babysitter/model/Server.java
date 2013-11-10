@@ -29,6 +29,9 @@ public class Server {
     @JsonProperty("desc")
     String description;
 
+    @JsonProperty(value = "payload", required = false)
+    Object data;
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -47,6 +50,11 @@ public class Server {
         int result = serverAddress.hashCode();
         result = 31 * result + port;
         return result;
+    }
+
+    @Override
+    public String toString() {
+        return getName() + " :: " + getDescription();
     }
 
     public String getName() {
@@ -101,6 +109,14 @@ public class Server {
 
     public void setTtlSeconds(int ttlSeconds) {
         this.ttlSeconds = ttlSeconds;
+    }
+
+    public Object getData() {
+        return data;
+    }
+
+    public void setData(Object data) {
+        this.data = data;
     }
 
     /**
