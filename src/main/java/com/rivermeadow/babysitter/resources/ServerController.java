@@ -2,6 +2,8 @@ package com.rivermeadow.babysitter.resources;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.rivermeadow.babysitter.alerts.AlertPlugin;
+import com.rivermeadow.babysitter.alerts.Pager;
 import com.rivermeadow.babysitter.model.Server;
 import com.rivermeadow.babysitter.spring.BeanConfiguration;
 import com.rivermeadow.babysitter.zookeper.NodesManager;
@@ -12,6 +14,9 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
+import org.xeustechnologies.jcl.JarClassLoader;
+import org.xeustechnologies.jcl.JclObjectFactory;
+import org.xeustechnologies.jcl.JclUtils;
 
 
 /**
@@ -25,6 +30,10 @@ public class ServerController {
     private static final Logger logger = Logger.getLogger(ServerController.class);
 
     NodesManager nodesManager;
+
+    @Autowired
+    JarClassLoader jarClassLoader;
+    JclObjectFactory factory = JclObjectFactory.getInstance();
 
     @Autowired
     public ServerController(NodesManager nodesManager) {
@@ -77,6 +86,31 @@ public class ServerController {
                     e.getLocalizedMessage());
             logger.error(msg, e);
             return msg;
+        }
+    }
+
+    // TODO: add POST method to register plugin, and GET should only provide info about plugin
+    @RequestMapping(value = "/plugins/{fqn:.+}", method = {RequestMethod.GET})
+    @ResponseBody
+    String getPlugin(@PathVariable String fqn) {
+        logger.debug("Activating plugin " + fqn);
+        if (jarClassLoader != null) {
+            try {
+                // TODO: obviously this would be POSTed as a file upload
+                jarClassLoader.add("/tmp/jcl-test.jar");
+
+                //Create object of loaded class
+                Object obj = factory.create(jarClassLoader, fqn);
+                AlertPlugin plugin = JclUtils.cast(obj, AlertPlugin.class);
+                logger.info("Loaded valid AlertPlugin: " + plugin.getName() + " :: " + plugin.getDescription());
+                return "Loaded valid AlertPlugin: " + plugin.getName() + " :: " + plugin.getDescription();
+            } catch (Exception ex) {
+                // TODO: this catch casts too wide a net, see if it can be reduced
+                logger.error("Could not instantiate plugin " + fqn + "; error was: " + ex.getLocalizedMessage(), ex);
+                return "[ERROR] Plugin " + fqn + " cannot be loaded: " + ex.getLocalizedMessage();
+            }
+        } else {
+            return "[ERROR] JAR Class loader not initialized, please check Spring configuration";
         }
     }
 
