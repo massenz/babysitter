@@ -3,8 +3,10 @@ package com.rivermeadow.babysitter.resources;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rivermeadow.babysitter.alerts.AlertPlugin;
+import com.rivermeadow.babysitter.alerts.Context;
 import com.rivermeadow.babysitter.alerts.Pager;
 import com.rivermeadow.babysitter.model.Server;
+import com.rivermeadow.babysitter.model.ServerAddress;
 import com.rivermeadow.babysitter.spring.BeanConfiguration;
 import com.rivermeadow.babysitter.zookeper.NodesManager;
 import org.apache.log4j.Logger;
@@ -34,6 +36,7 @@ public class ServerController {
     @Autowired
     JarClassLoader jarClassLoader;
     JclObjectFactory factory = JclObjectFactory.getInstance();
+    Context ctx = new Context();
 
     @Autowired
     public ServerController(NodesManager nodesManager) {
@@ -103,6 +106,12 @@ public class ServerController {
                 Object obj = factory.create(jarClassLoader, fqn);
                 AlertPlugin plugin = JclUtils.cast(obj, AlertPlugin.class);
                 logger.info("Loaded valid AlertPlugin: " + plugin.getName() + " :: " + plugin.getDescription());
+                plugin.startup(ctx);
+                Pager pager = JclUtils.cast(plugin.activate(), Pager.class);
+                logger.info("Plugin activated, obtained Pager: " + pager.getClass().getName());
+                Server fakeServer = new Server(new ServerAddress("test", "10.10.121.100"), 80, 30);
+                fakeServer.setDescription("This is a fake server");
+                pager.page(fakeServer);
                 return "Loaded valid AlertPlugin: " + plugin.getName() + " :: " + plugin.getDescription();
             } catch (Exception ex) {
                 // TODO: this catch casts too wide a net, see if it can be reduced
