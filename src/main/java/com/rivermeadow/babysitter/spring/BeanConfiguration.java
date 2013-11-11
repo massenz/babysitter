@@ -19,6 +19,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Scope;
 import org.springframework.http.HttpStatus;
+import org.xeustechnologies.jcl.JarClassLoader;
 
 import java.util.concurrent.TimeUnit;
 
@@ -26,7 +27,6 @@ import java.util.concurrent.TimeUnit;
  * TODO: enter class description here
  *
  * @author marco
- *
  */
 
 @Configuration
@@ -77,5 +77,11 @@ public class BeanConfiguration {
     @Scope("singleton")
     RegistrationListener registrationListener() {
         return getAlertManager();
+    }
+
+    @Bean
+    @Scope("singleton")
+    JarClassLoader jcl() {
+        return new JarClassLoader();
     }
 }
