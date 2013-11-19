@@ -12,8 +12,6 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * TODO: this class should be an abstract class
- *
  * Encapsulates the behavior of an alert manager to respond to event such as a monitored
  * server unexpectedly de-registering from ZK.
  *

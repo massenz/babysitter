@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rivermeadow.babysitter.alerts.AlertPlugin;
 import com.rivermeadow.babysitter.alerts.Context;
 import com.rivermeadow.babysitter.alerts.Pager;
+import com.rivermeadow.babysitter.alerts.PluginRegistry;
 import com.rivermeadow.babysitter.model.Server;
 import com.rivermeadow.babysitter.model.ServerAddress;
 import com.rivermeadow.babysitter.spring.BeanConfiguration;
@@ -34,9 +35,7 @@ public class ServerController {
     NodesManager nodesManager;
 
     @Autowired
-    JarClassLoader jarClassLoader;
-    JclObjectFactory factory = JclObjectFactory.getInstance();
-    Context ctx = new Context();
+    PluginRegistry registry;
 
     @Autowired
     public ServerController(NodesManager nodesManager) {
@@ -92,35 +91,14 @@ public class ServerController {
         }
     }
 
-    // TODO: add POST method to register plugin, and GET should only provide info about plugin
     @RequestMapping(value = "/plugins/{fqn:.+}", method = {RequestMethod.GET})
     @ResponseBody
     String getPlugin(@PathVariable String fqn) {
-        logger.debug("Activating plugin " + fqn);
-        if (jarClassLoader != null) {
-            try {
-                // TODO: obviously this would be POSTed as a file upload
-                jarClassLoader.add("/tmp/jcl-test.jar");
-
-                //Create object of loaded class
-                Object obj = factory.create(jarClassLoader, fqn);
-                AlertPlugin plugin = JclUtils.cast(obj, AlertPlugin.class);
-                logger.info("Loaded valid AlertPlugin: " + plugin.getName() + " :: " + plugin.getDescription());
-                plugin.startup(ctx);
-                Pager pager = JclUtils.cast(plugin.activate(), Pager.class);
-                logger.info("Plugin activated, obtained Pager: " + pager.getClass().getName());
-                Server fakeServer = new Server(new ServerAddress("test", "10.10.121.100"), 80, 30);
-                fakeServer.setDescription("This is a fake server");
-                pager.page(fakeServer);
-                return "Loaded valid AlertPlugin: " + plugin.getName() + " :: " + plugin.getDescription();
-            } catch (Exception ex) {
-                // TODO: this catch casts too wide a net, see if it can be reduced
-                logger.error("Could not instantiate plugin " + fqn + "; error was: " + ex.getLocalizedMessage(), ex);
-                return "[ERROR] Plugin " + fqn + " cannot be loaded: " + ex.getLocalizedMessage();
-            }
-        } else {
-            return "[ERROR] JAR Class loader not initialized, please check Spring configuration";
+        PluginRegistry.PluginBundle bundle = registry.getBundle(fqn);
+        if (bundle != null) {
+            return "[OK] " + bundle.getPlugin().getDescription();
         }
+        return "[ERROR] Plugin " + fqn + " not found";
     }
 
     @RequestMapping(value = "/servers/{id}", method = {RequestMethod.DELETE})
