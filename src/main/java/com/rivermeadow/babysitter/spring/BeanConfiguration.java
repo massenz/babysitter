@@ -27,6 +27,9 @@ public class BeanConfiguration {
     @Value("${plugin.config_path}")
     String configPath;
 
+    AlertManager alertManager = new AlertManager();
+    Context pluginsContext;
+
     @Bean
     @Scope("singleton")
     ZookeeperConfiguration zkConfiguration() {
@@ -42,11 +45,14 @@ public class BeanConfiguration {
     @Bean
     @Scope("singleton")
     Context pluginsContext() {
-        return new Context();
+        if (pluginsContext == null) {
+            pluginsContext = new Context(configPath);
+        }
+        return pluginsContext;
     }
 
     public AlertManager getAlertManager() {
-        return new AlertManager();
+        return alertManager;
     }
 
     @Bean

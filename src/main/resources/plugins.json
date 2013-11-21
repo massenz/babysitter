@@ -1,7 +1,7 @@
 [
     {
         "name": "MandrillEmailAlert",
-        "class": "com.rivermeadow.babysitter.plugins.mandrill.MandrillEmailAlertPager",
+        "class": "com.rivermeadow.babysitter.plugins.mandrill.MandrillEmailPlugin",
         "url": "classpath:"
     },
     {
