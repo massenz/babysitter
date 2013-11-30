@@ -1,4 +1,4 @@
-package com.rivermeadow.babysitter.alerts.mandrill;
+package com.rivermeadow.babysitter.plugins.mandrill;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -93,7 +93,7 @@ public class MandrillEmailAlertPager implements Pager {
                 "monitoring service at %s: last known payload was:<br><pre>%s</pre>",
                 server.getServerAddress().getHostname(), new Date(), server.getData());
         String details = mapper.enable(SerializationFeature.INDENT_OUTPUT)
-                               .writeValueAsString(server);
+                .writeValueAsString(server);
         return MessageFormat.format(htmlBody, title, summary, details);
     }
 }

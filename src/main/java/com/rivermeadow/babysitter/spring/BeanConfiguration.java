@@ -1,27 +1,18 @@
 package com.rivermeadow.babysitter.spring;
 
 import com.rivermeadow.babysitter.alerts.AlertManager;
-import com.rivermeadow.babysitter.alerts.Pager;
-import com.rivermeadow.babysitter.alerts.autoscale.AutoscalingPager;
-import com.rivermeadow.babysitter.alerts.mandrill.MandrillEmailAlertPager;
+import com.rivermeadow.babysitter.alerts.Context;
+import com.rivermeadow.babysitter.alerts.PluginRegistry;
 import com.rivermeadow.babysitter.zookeper.EvictionListener;
 import com.rivermeadow.babysitter.zookeper.NodesManager;
 import com.rivermeadow.babysitter.zookeper.RegistrationListener;
 import com.rivermeadow.babysitter.zookeper.ZookeeperConfiguration;
-import org.apache.log4j.Logger;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.context.embedded.EmbeddedServletContainerFactory;
-import org.springframework.boot.context.embedded.ErrorPage;
-import org.springframework.boot.context.embedded.tomcat.TomcatEmbeddedServletContainerFactory;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Scope;
-import org.springframework.http.HttpStatus;
 import org.xeustechnologies.jcl.JarClassLoader;
-
-import java.util.concurrent.TimeUnit;
 
 /**
  * TODO: enter class description here
@@ -33,17 +24,11 @@ import java.util.concurrent.TimeUnit;
 @EnableConfigurationProperties
 public class BeanConfiguration {
 
-    AlertManager alertManager;
+    @Value("${plugin.config_path}")
+    String configPath;
 
-    // TODO: these configurations really do not belong here
-    @Value("${mandrill.api_key}")
-    String apiKey;
-
-    @Value("${mandrill.email_template.location}")
-    String templateLocation;
-
-    @Value("${autoscale.process}")
-    String autoscaleProcess;
+    AlertManager alertManager = new AlertManager();
+    Context pluginsContext;
 
     @Bean
     @Scope("singleton")
@@ -57,14 +42,23 @@ public class BeanConfiguration {
         return new NodesManager();
     }
 
-    public AlertManager getAlertManager() {
-        if (alertManager == null) {
-            alertManager = new AlertManager();
-            // TODO: this should actually be driven by a configuration file or even auto-discovery
-            alertManager.addPager(new MandrillEmailAlertPager(apiKey, templateLocation));
-            alertManager.addPager(new AutoscalingPager(autoscaleProcess));
+    @Bean
+    @Scope("singleton")
+    Context pluginsContext() {
+        if (pluginsContext == null) {
+            pluginsContext = new Context(configPath);
         }
+        return pluginsContext;
+    }
+
+    public AlertManager getAlertManager() {
         return alertManager;
+    }
+
+    @Bean
+    @Scope("singleton")
+    PluginRegistry registry() {
+        return new PluginRegistry(getAlertManager(), pluginsContext());
     }
 
     @Bean
