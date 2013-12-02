@@ -1,0 +1,4 @@
+# Test file for the ResourceLocator class
+
+foo: baz
+bar: 33

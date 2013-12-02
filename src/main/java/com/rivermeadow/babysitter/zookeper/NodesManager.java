@@ -2,11 +2,8 @@ package com.rivermeadow.babysitter.zookeper;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.base.Function;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
-import com.rivermeadow.babysitter.model.Server;
 import org.apache.log4j.Logger;
 import org.apache.zookeeper.*;
 import org.apache.zookeeper.data.Stat;
@@ -15,10 +12,16 @@ import org.springframework.beans.factory.annotation.Autowired;
 import javax.annotation.PostConstruct;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.net.URISyntaxException;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
+
+import com.rivermeadow.babysitter.model.Server;
+
+import static com.rivermeadow.babysitter.plugins.utils.ResourceLocator.*;
 
 /**
  * This is the main interface towards the ZK service and manages the registration and eviction of
@@ -37,6 +40,7 @@ import java.util.concurrent.CountDownLatch;
 public class NodesManager implements Watcher {
     private static final String REMOVED = "REMOVED";
     private static final String ADDED = "ADDED";
+    public static final String BOOTSTRAP_LOCATION = "bootstrap.location";
 
     Logger logger = Logger.getLogger(NodesManager.class);
 
@@ -71,6 +75,7 @@ public class NodesManager implements Watcher {
     }
 
     public void startup() throws KeeperException, InterruptedException {
+        bootstrap();
         List<String> serverNames = getMonitoredServers();
         for (String name : serverNames) {
             // TODO: add some guard here, as one (or more) of the servers may have gone since the
@@ -80,6 +85,52 @@ public class NodesManager implements Watcher {
         }
         logger.info(String.format("Nodes Manager Started successfully. There are currently %d " +
                 "servers: %s", serverNames.size(), serverNames.toString()));
+    }
+
+    private void bootstrap() {
+        try {
+            InputStream bootstrapFile = getResourceFromSystemProperty(BOOTSTRAP_LOCATION);
+            List<String> nodes = (List<String>)
+                    mapper.readValue(bootstrapFile, Map.class).get("paths");
+            logger.info("Paths to create: " + nodes);
+            for (String node : nodes) {
+                createNode(node);
+            }
+        } catch (IOException | URISyntaxException e) {
+            logger.error(String.format("Could not retrieve a valid list of 'bootstrap nodes' " +
+                    "for the application; this may not be fatal, but it's possible the server " +
+                    "will misbehave.  Failure was: %s, while trying to access %s (based on " +
+                    "system property %s)", e.getLocalizedMessage(),
+                    System.getProperty(BOOTSTRAP_LOCATION),
+                    BOOTSTRAP_LOCATION));
+        }
+    }
+
+    private void createNode(final String node) {
+        zk.create(node, "".getBytes(), ZooDefs.Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT,
+                new AsyncCallback.StringCallback() {
+                    @Override
+                    public void processResult(int rc, String path, Object ctx, String name) {
+                        switch (KeeperException.Code.get(rc)) {
+                            case CONNECTIONLOSS:
+                                createNode(path);
+                                break;
+                            case OK:
+                                logger.info("Node " + path + " created");
+                                break;
+                            case NODEEXISTS:
+                                // safe to ignore
+                                logger.debug("Path " + path + " already exists");
+                                break;
+                            default:
+                                logger.error("Unexpected result while trying to create node " +
+                                        node + ": " + KeeperException.create(KeeperException.Code
+                                        .get(rc), path));
+                        }
+                    }
+                },
+                null    // nothing useful to pass to the ctx callback parameter
+        );
     }
 
     public void shutdown() throws InterruptedException {
@@ -120,51 +171,6 @@ public class NodesManager implements Watcher {
 
     public List<String> getMonitoredServers() throws KeeperException, InterruptedException {
         return zk.getChildren(zkConfiguration.getBasePath(), this);
-    }
-
-    public Server getServerInfo(String name) throws KeeperException, InterruptedException {
-        // TODO: make a 'pluggable' servers state manager
-        // Right now, it just goes to ZK and gets the data out
-        String fullPath = zkConfiguration.getBasePath() + File.separatorChar + name;
-        Stat stat = new Stat();
-        byte[] data = zk.getData(fullPath, false, stat);
-        String serverInfo = new String(data);
-        logger.debug("Version: " + stat.getVersion());
-        try {
-            Server server = mapper.readValue(data, Server.class);
-            logger.debug(String.format("%s :: %s", server.getName(), server.getDescription()));
-            return server;
-        } catch (IOException e) {
-            logger.error(String.format("Could not convert data [%s] into a valid Server object "
-                    + "(%s)", new String(data), e.getLocalizedMessage()), e);
-            return null;
-        }
-    }
-
-    public void createServer(String name, Server server) {
-        try {
-            zk.create(zkConfiguration.getBasePath() + '/' + name, mapper.writeValueAsBytes(server),
-                    ZooDefs.Ids.OPEN_ACL_UNSAFE,
-                    CreateMode.EPHEMERAL);
-            registrationListener.register(server);
-        } catch (KeeperException | InterruptedException | JsonProcessingException e) {
-            logger.error(String.format("Cannot create server %s entry: %s", name,
-                    e.getLocalizedMessage()), e);
-        }
-    }
-
-    public void removeServer(String id) {
-        try {
-            String path = zkConfiguration.getBasePath() + "/" + id;
-            Stat stat = zk.exists(path, false);
-            if (stat == null){
-                throw new IllegalStateException(String.format("The server %s does not exist", id));
-            }
-            zk.delete(path, stat.getVersion());
-        } catch (KeeperException | InterruptedException e) {
-            logger.error(String.format("Cannot remove server %s: %s", id, e.getLocalizedMessage()
-            ), e);
-        }
     }
 
     /**
@@ -226,5 +232,51 @@ public class NodesManager implements Watcher {
             }
         }
         return diffs;
+    }
+
+    // ----------------------------------------------------------------
+    // TODO: factor out the following methods to a servers manager
+
+    public Server getServerInfo(String name) throws KeeperException, InterruptedException {
+        String fullPath = zkConfiguration.getBasePath() + File.separatorChar + name;
+        Stat stat = new Stat();
+        byte[] data = zk.getData(fullPath, false, stat);
+        String serverInfo = new String(data);
+        logger.debug("Version: " + stat.getVersion());
+        try {
+            Server server = mapper.readValue(data, Server.class);
+            logger.debug(String.format("%s :: %s", server.getName(), server.getDescription()));
+            return server;
+        } catch (IOException e) {
+            logger.error(String.format("Could not convert data [%s] into a valid Server object "
+                    + "(%s)", new String(data), e.getLocalizedMessage()), e);
+            return null;
+        }
+    }
+
+    public void createServer(String name, Server server) {
+        try {
+            zk.create(zkConfiguration.getBasePath() + '/' + name, mapper.writeValueAsBytes(server),
+                    ZooDefs.Ids.OPEN_ACL_UNSAFE,
+                    CreateMode.EPHEMERAL);
+            registrationListener.register(server);
+        } catch (KeeperException | InterruptedException | JsonProcessingException e) {
+            logger.error(String.format("Cannot create server %s entry: %s", name,
+                    e.getLocalizedMessage()), e);
+        }
+    }
+
+    public void removeServer(String id) {
+        try {
+            String path = zkConfiguration.getBasePath() + "/" + id;
+            Stat stat = zk.exists(path, false);
+            if (stat == null){
+                throw new IllegalStateException(String.format("The server %s does not exist", id));
+            }
+            zk.delete(path, stat.getVersion());
+        } catch (KeeperException | InterruptedException e) {
+            logger.error(String.format("Cannot remove server %s: %s", id, e.getLocalizedMessage()
+            ), e);
+        }
     }
 }
