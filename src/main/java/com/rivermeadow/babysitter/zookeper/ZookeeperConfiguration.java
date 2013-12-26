@@ -6,7 +6,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
 /**
- * Manages the ZK zkConfiguration options, by reading them from a file
+ * Manages the ZK zkConfiguration options, by reading them from the application
+ * configuration file (see {@code resources/application.properties})
  *
  * @author marco
  *
@@ -17,6 +18,7 @@ public class ZookeeperConfiguration {
 
     String hosts;
     String basePath;
+    String alertsPath;
     Integer sessionTimeout;
     String configPath;
 
@@ -50,5 +52,13 @@ public class ZookeeperConfiguration {
 
     public void setSessionTimeout(Integer sessionTimeout) {
         this.sessionTimeout = sessionTimeout;
+    }
+
+    public String getAlertsPath() {
+        return alertsPath;
+    }
+
+    public void setAlertsPath(String alertsPath) {
+        this.alertsPath = alertsPath;
     }
 }

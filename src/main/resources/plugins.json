@@ -3,10 +3,5 @@
         "name": "MandrillEmailAlert",
         "class": "com.rivermeadow.babysitter.plugins.mandrill.MandrillEmailPlugin",
         "url": "classpath:"
-    },
-    {
-        "name": "AwesomeRespawn",
-        "class": "com.rivermeadow.babysitter.plugins.autoscale.AutoscalingPager",
-        "url": "classpath:"
     }
 ]

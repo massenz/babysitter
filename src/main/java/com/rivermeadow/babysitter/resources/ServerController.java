@@ -2,6 +2,9 @@ package com.rivermeadow.babysitter.resources;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+
 import com.rivermeadow.babysitter.alerts.AlertPlugin;
 import com.rivermeadow.babysitter.alerts.Context;
 import com.rivermeadow.babysitter.alerts.Pager;
@@ -21,6 +24,10 @@ import org.xeustechnologies.jcl.JarClassLoader;
 import org.xeustechnologies.jcl.JclObjectFactory;
 import org.xeustechnologies.jcl.JclUtils;
 
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
 
 /**
  * The Main server controller class to start the application and dispatch requests
@@ -33,6 +40,8 @@ public class ServerController {
     private static final Logger logger = Logger.getLogger(ServerController.class);
 
     NodesManager nodesManager;
+
+    ObjectMapper mapper = new ObjectMapper();
 
     @Autowired
     PluginRegistry registry;
@@ -48,34 +57,27 @@ public class ServerController {
         }
     }
 
-    @RequestMapping(value = "/servers/{id}", method = {RequestMethod.POST},
-            consumes = "application/json", produces = "text/plain")
-    @ResponseBody
-    String registerServer(@PathVariable String id, @RequestBody Server server) {
-        nodesManager.createServer(id, server);
-        logger.info(String.format("Server %s registered", id));
-        return "ok";
-    }
-
-    @RequestMapping(value = "/servers", method = {RequestMethod.GET}, produces = "text/plain")
+    @RequestMapping(value = "/servers", method = {RequestMethod.GET},
+            produces = "application/json")
     @ResponseBody
     String getAllServers() {
-        StringBuilder response = new StringBuilder();
+        Map<String, Object> response = Maps.newHashMapWithExpectedSize(2);
         try {
-            String content = nodesManager.getMonitoredServers().toString();
-            logger.debug("Getting all servers: " + content);
-            response.append(content);
-            response.append('\n').append("\nStatus: OK");
-            return response.toString();
-        } catch (KeeperException | InterruptedException e) {
-            return "[Error] " + e.getLocalizedMessage();
+            List<String> servers = nodesManager.getMonitoredServers();
+            logger.debug("Got these servers: " + servers);
+            response.put("servers", servers);
+            response.put("status", "OK");
+            return mapper.writeValueAsString(response);
+        } catch (KeeperException | InterruptedException | JsonProcessingException e) {
+            return String.format("{ \"Error\": \"%s\"}", e.getLocalizedMessage());
         }
     }
 
     // NOTE: the RegEx pattern is necessary to cope with Spring's PathVariable stupidity
     //   without it, it would "swallow" anything after a `.` (perfectly valid in a URL param)
     //   See: http://stackoverflow.com/questions/16332092/spring-mvc-pathvariable-with-dot-is-getting-truncated
-    @RequestMapping(value = "/servers/{id:.+}", method = {RequestMethod.GET})
+    @RequestMapping(value = "/servers/{id:.+}", method = {RequestMethod.GET},
+            produces = "application/json")
     @ResponseBody
     String getServer(@PathVariable String id) {
         logger.debug("Retrieving data for server " + id);
@@ -91,26 +93,42 @@ public class ServerController {
         }
     }
 
-    @RequestMapping(value = "/plugins/{fqn:.+}", method = {RequestMethod.GET})
+    @RequestMapping(value = "/plugins/{fqn:.+}", method = {RequestMethod.GET},
+            produces = "application/json")
     @ResponseBody
     String getPlugin(@PathVariable String fqn) {
         PluginRegistry.PluginBundle bundle = registry.getBundle(fqn);
         if (bundle != null) {
-            return "[OK] " + bundle.getPlugin().getDescription();
+            try {
+                return mapper.writeValueAsString(bundle);
+            } catch (JsonProcessingException e) {
+                logger.error(String.format("Could not build proper JSON for %s (%s)",
+                        bundle.getMetadata(), e.getLocalizedMessage()));
+                return String.format("{\"error\": \"%s\"," +
+                        "\"plugin\": \"%s\"}", e.getLocalizedMessage(), fqn);
+            }
         }
-        return "[ERROR] Plugin " + fqn + " not found";
+        // TODO: construct error string properly, escaping quotes etc.
+        return String.format("{\"error\": \"%s not found\"," +
+                "\"plugin\": \"%s\"}", fqn, fqn);
     }
 
-    @RequestMapping(value = "/servers/{id}", method = {RequestMethod.DELETE})
+    @RequestMapping(value = "/plugins", method = {RequestMethod.GET}, produces = "application/json")
     @ResponseBody
-    String deleteServer(@PathVariable String id) {
-        nodesManager.removeServer(id);
-        return "Server " + id + " removed";
+    String getAllPlugins() throws JsonProcessingException {
+        Set<PluginRegistry.PluginBundle> bundles = registry.getAllBundles();
+        List<PluginRegistry.PluginMetadata> metadata = Lists.newArrayListWithCapacity(bundles
+                .size());
+        for (PluginRegistry.PluginBundle bundle : bundles) {
+            metadata.add(bundle.getMetadata());
+        }
+        return mapper.writeValueAsString(metadata);
     }
+
 
     public static void main(String[] args) throws Exception {
         // TODO: inject correct major.minor version and generated build no.
-        logger.debug(String.format("Starting Babysitter Server - rev. %d.%d.%d", 0, 1, 1234));
+        logger.debug(String.format("Starting Babysitter Server - rev. %d.%d.%d", 0, 2, 0));
         SpringApplication.run(new Object[]{
                 ServerController.class,
                 BeanConfiguration.class

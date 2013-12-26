@@ -234,49 +234,28 @@ public class NodesManager implements Watcher {
         return diffs;
     }
 
-    // ----------------------------------------------------------------
-    // TODO: factor out the following methods to a servers manager
-
+    /**
+     * Retrieves info about the given server, by interrogating ZK
+     *
+     * @param name the server's hostname
+     * @return the parsed {@link Server} object, from the JSON data sent to ZK by the server itself
+     *
+     * @throws KeeperException
+     * @throws InterruptedException
+     */
     public Server getServerInfo(String name) throws KeeperException, InterruptedException {
         String fullPath = zkConfiguration.getBasePath() + File.separatorChar + name;
         Stat stat = new Stat();
         byte[] data = zk.getData(fullPath, false, stat);
-        String serverInfo = new String(data);
-        logger.debug("Version: " + stat.getVersion());
         try {
             Server server = mapper.readValue(data, Server.class);
             logger.debug(String.format("%s :: %s", server.getName(), server.getDescription()));
             return server;
         } catch (IOException e) {
-            logger.error(String.format("Could not convert data [%s] into a valid Server object "
-                    + "(%s)", new String(data), e.getLocalizedMessage()), e);
+            logger.error(String.format("Could not convert data [%s] into a valid Server object " +
+                    "(%s): %s",
+                    new String(data), fullPath, e.getLocalizedMessage()), e);
             return null;
-        }
-    }
-
-    public void createServer(String name, Server server) {
-        try {
-            zk.create(zkConfiguration.getBasePath() + '/' + name, mapper.writeValueAsBytes(server),
-                    ZooDefs.Ids.OPEN_ACL_UNSAFE,
-                    CreateMode.EPHEMERAL);
-            registrationListener.register(server);
-        } catch (KeeperException | InterruptedException | JsonProcessingException e) {
-            logger.error(String.format("Cannot create server %s entry: %s", name,
-                    e.getLocalizedMessage()), e);
-        }
-    }
-
-    public void removeServer(String id) {
-        try {
-            String path = zkConfiguration.getBasePath() + "/" + id;
-            Stat stat = zk.exists(path, false);
-            if (stat == null){
-                throw new IllegalStateException(String.format("The server %s does not exist", id));
-            }
-            zk.delete(path, stat.getVersion());
-        } catch (KeeperException | InterruptedException e) {
-            logger.error(String.format("Cannot remove server %s: %s", id, e.getLocalizedMessage()
-            ), e);
         }
     }
 }
