@@ -213,15 +213,12 @@ public class NodesManager implements Watcher {
     /**
      * Computes the diff between the currently registered servers and the @code{latest} set as
      * reported by Zookeeper (typically, following a change in the monitored node's children --
-     * see @link{NodesManager#process(WatchedEvent)}.
+     * see {@link NodesManager#process(WatchedEvent)}).
      *
      * <p>The returned Map contains exactly two elements (either, or both,
      * of which MAY be empty): a DELETED Set, containing any servers that was in the currently
-     * kept list, and is no longer in @code{latest}, and an ADDED Set,
+     * kept list, and is no longer in {@code latest}, and an ADDED Set,
      * containing any newly discovered servers.
-     *
-     * <p>This method will also call the Listeners, if the @code{}alertListeners} flag
-     * is @code{true}
      *
      * @param latest a List of servers as obtained, for example, from Zookeeper
      * @return  a ``pair`` of Sets, either, or both of which may be empty,
@@ -234,11 +231,9 @@ public class NodesManager implements Watcher {
         Set<Server> evictedServers = Sets.newHashSet();
         for (Server server : knownServers) {
             if (!latestServersNames.remove(server.getName())) {
-                // if we couldn't remove the name, it means it wasn't there to start with, so
-                // it must be a removed server:
+                // if we can't remove the name of a known server from the most recent list we got
+                // from ZK, it means it's no longer there, so it must be a removed server:
                 logger.info("Server " + server.getName() + " has been removed");
-                // we can't quite alert yet, as eviction may change the knownServers Set and
-                // that would cause a CollectionModifiedException to be thrown
                 evictedServers.add(server);
             }
         }
@@ -299,13 +294,21 @@ public class NodesManager implements Watcher {
             Stat stat = zk.exists(path, false);
             if (stat == null) {
                 CreateMode createMode = persistent ? CreateMode.PERSISTENT : CreateMode.EPHEMERAL;
-                zk.create(path, null, ZooDefs.Ids.OPEN_ACL_UNSAFE,
-                        createMode,
-                        createSilenceCallback,
-                        server);
+                zk.create(path, null, ZooDefs.Ids.OPEN_ACL_UNSAFE, createMode,
+                        createSilenceCallback, server);
             }
+        } catch (KeeperException.SessionExpiredException ex) {
+            // this is a pretty severe situation, as we've lost contact with ZK and we can't
+            // really know what's going on, and at the same time we know a monitored server has
+            // triggered an alert.
+            // Unintuitively, we cannot panic and just trigger alerts,
+            // as the system is in an unstable state: we should just fail, fast and noisily
+            throw new RuntimeException("ZK Session Expired, probably caused by a connectivity " +
+                    "loss or, more worryingly, because we've lost all connectivity to the ZK " +
+                    "ensemble.");
         } catch (KeeperException | InterruptedException e) {
             // this is probably safe to ignore, as it's thrown by the exists() call
+            // which is a an expected event, when there are more than one monitor server running
             String msg = String.format("Caught an exception while trying to silence %s (%s)",
                     server, e.getLocalizedMessage());
             logger.error(msg);
@@ -314,10 +317,12 @@ public class NodesManager implements Watcher {
         return Status.createStatus("Server " + server.getName() + " silenced");
     }
 
+    // NOTE: ``name`` is not documented, however, it's the full name of the path being created
+    //      this is useful when creating 'sequence' nodes, but clearly pointless here,
+    //      as it's the same as ``path``
     AsyncCallback.StringCallback createSilenceCallback = new AsyncCallback.StringCallback() {
         @Override
         public void processResult(int rc, String path, Object ctx, String name) {
-            logger.info(">>>>>> " + name);
             Server svr = (Server) ctx;
             switch (KeeperException.Code.get(rc)) {
                 case CONNECTIONLOSS:
