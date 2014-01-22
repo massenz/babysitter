@@ -22,7 +22,8 @@ public class ResourceLocator {
     public enum Scheme {
         CLASSPATH,
         FILE,
-        HTTP;
+        HTTP,
+        HTTPS;
 
         @Override
         public String toString() { return this.name().toLowerCase(); }
@@ -43,7 +44,8 @@ public class ResourceLocator {
             case FILE:
                 return new FileInputStream(Paths.get(resourceUri).toFile());
             case HTTP:
-                throw new UnsupportedOperationException("Downloading resources via HTTP not " +
+            case HTTPS:
+                throw new UnsupportedOperationException("Downloading resources via HTTP{S} not " +
                         "implemented yet");
             default:
                 throw new IllegalArgumentException("Could not parse " + resourceUri + " into a " +
