@@ -42,7 +42,7 @@ public class BeanConfiguration {
     @Bean
     @Scope("singleton")
     NodesManager nodesManager() {
-        return new NodesManager(maxDelayMsec);
+        return new NodesManager();
     }
 
     @Bean

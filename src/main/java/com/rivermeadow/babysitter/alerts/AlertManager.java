@@ -67,6 +67,16 @@ public class AlertManager implements EvictionListener, RegistrationListener {
         return registeredServers;
     }
 
+    @Override
+    public Status updateServer(Server server) {
+        if (registeredServers.remove(server)) {
+            registeredServers.add(server);
+            return Status.createStatus("Server " + server.getName() + " updated");
+        } else {
+            return Status.createErrorStatus("Server " + server + " was not registered");
+        }
+    }
+
     /**
      * Tries to claim ownership for the alert, by attempting to create a ZK node with the same
      * name as the server, in the ``alert sub-tree`` (see {@link com.rivermeadow.babysitter

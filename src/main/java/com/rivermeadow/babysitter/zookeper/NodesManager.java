@@ -2,6 +2,7 @@ package com.rivermeadow.babysitter.zookeper;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import org.apache.log4j.Logger;
@@ -48,7 +49,6 @@ public class NodesManager implements Watcher {
 
     private CountDownLatch connectedSignal = new CountDownLatch(1);
     private ObjectMapper mapper = new ObjectMapper();
-    private final long maxDelayMsec;
 
     @Autowired
     EvictionListener evictionListener;
@@ -58,10 +58,6 @@ public class NodesManager implements Watcher {
 
     @Autowired
     ZookeeperConfiguration zkConfiguration;
-
-    public NodesManager(long maxDelaysMsec) {
-        this.maxDelayMsec = maxDelaysMsec;
-    }
 
     @PostConstruct
     public void connectZookeeper() {
@@ -172,14 +168,16 @@ public class NodesManager implements Watcher {
             case NodeDataChanged:
                 logger.debug(String.format("A node changed: %s [%s]", watchedEvent.getPath(),
                         watchedEvent.getState()));
-
-//                try {
-//
-//                } catch (KeeperException | InterruptedException ex) {
-//                    logger.error(String.format("There was an error while updating the data " +
-//                            "associated with node %s: %s", watchedEvent.getPath(),
-//                            ex.getLocalizedMessage()));
-//                }
+                try {
+                    Server server = getServerInfo(watchedEvent.getPath());
+                    registrationListener.updateServer(server);
+                    // now re-enable the watch for future updates:
+                    zk.exists(watchedEvent.getPath(), this);
+                } catch (KeeperException | InterruptedException ex) {
+                    logger.error(String.format("There was an error while updating the data " +
+                            "associated with node %s: %s", watchedEvent.getPath(),
+                            ex.getLocalizedMessage()));
+                }
                 break;
             default:
                 logger.warn(String.format("Not an expected event: %s; for %s",
@@ -252,14 +250,14 @@ public class NodesManager implements Watcher {
     /**
      * Retrieves info about the given server, by interrogating ZK
      *
-     * @param name the server's hostname
+     * @param name the server's hostname or the full path to the node: either will work.
      * @return the parsed {@link Server} object, from the JSON data sent to ZK by the server itself
      *
      * @throws KeeperException
      * @throws InterruptedException
      */
     public Server getServerInfo(String name) throws KeeperException, InterruptedException {
-        String fullPath = zkConfiguration.getBasePath() + File.separatorChar + name;
+        String fullPath = buildMonitorPathForServer(name);
         Stat stat = new Stat();
         byte[] data = zk.getData(fullPath, this, stat);
         try {
@@ -407,7 +405,8 @@ public class NodesManager implements Watcher {
      * @param server the server that we are looking for in the `alert path`
      * @return the fully-qualified path to the node
      */
-    private String buildAlertPathForServer(Server server) {
+    @VisibleForTesting
+    protected String buildAlertPathForServer(Server server) {
         return buildAlertPathForServer(server.getServerAddress().getHostname());
     }
 
@@ -418,7 +417,8 @@ public class NodesManager implements Watcher {
      * @param serverHostname the hostname of the server that we are looking for in the `alert path`
      * @return the fully-qualified path to the node
      */
-    private String buildAlertPathForServer(String serverHostname) {
+    @VisibleForTesting
+    protected String buildAlertPathForServer(String serverHostname) {
         return zkConfiguration.getAlertsPath() + File.separator + serverHostname;
     }
 
@@ -428,7 +428,8 @@ public class NodesManager implements Watcher {
      * @param server the server that we are looking for in the `monitor path`
      * @return the fully-qualified path to the node
      */
-    private String buildMonitorPathForServer(Server server) {
+    @VisibleForTesting
+    protected String buildMonitorPathForServer(Server server) {
         return buildMonitorPathForServer(server.getServerAddress().getHostname());
     }
 
@@ -436,10 +437,18 @@ public class NodesManager implements Watcher {
      * The `monitor path` is where we keep in ZK's tree the list of server under monitoring
      *
      * @param serverHostname the hostname of the server that we are looking for in the `monitor
-     *                       path`
+     *                       path` or the full path (which may be returned unchanged) which will
+     *                       be adjusted to point to the right subtree
      * @return the fully-qualified path to the node
      */
-    private String buildMonitorPathForServer(String serverHostname) {
+    @VisibleForTesting
+    protected String buildMonitorPathForServer(String serverHostname) {
+        if (serverHostname.startsWith(zkConfiguration.getBasePath())) {
+            return serverHostname;
+        } else if (serverHostname.startsWith(zkConfiguration.getAlertsPath())) {
+            serverHostname = serverHostname.substring(
+                serverHostname.lastIndexOf(File.separatorChar) + 1);
+        }
         return zkConfiguration.getBasePath() + File.separator + serverHostname;
     }
 }
