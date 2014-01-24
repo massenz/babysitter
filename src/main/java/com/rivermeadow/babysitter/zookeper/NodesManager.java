@@ -158,9 +158,9 @@ public class NodesManager implements Watcher {
             case NodeChildrenChanged:
                 try {
                     List<String> servers = zk.getChildren(zkConfiguration.getBasePath(), this);
-                    Map<String, Set<Server>> diffs = computeDiff(servers);
                     logger.debug(String.format("Server modified. Watched servers now: %s",
                             servers.toString()));
+                    Map<String, Set<Server>> diffs = computeDiff(servers);
                     logger.debug(String.format("Removed Servers: %s", diffs.get(REMOVED)));
                     logger.debug(String.format("Added servers: %s", diffs.get(ADDED)));
                     processDiffs(diffs);
@@ -169,6 +169,18 @@ public class NodesManager implements Watcher {
                             "servers [%s]", e.getLocalizedMessage()), e);
                 }
                 break;
+            case NodeDataChanged:
+                logger.debug(String.format("A node changed: %s [%s]", watchedEvent.getPath(),
+                        watchedEvent.getState()));
+
+//                try {
+//
+//                } catch (KeeperException | InterruptedException ex) {
+//                    logger.error(String.format("There was an error while updating the data " +
+//                            "associated with node %s: %s", watchedEvent.getPath(),
+//                            ex.getLocalizedMessage()));
+//                }
+                break;
             default:
                 logger.warn(String.format("Not an expected event: %s; for %s",
                         watchedEvent.getType(), watchedEvent.getPath()));
@@ -176,7 +188,6 @@ public class NodesManager implements Watcher {
     }
 
     private void processDiffs(Map<String, Set<Server>> diffs) {
-        // this can be done without further ado
         for (Server server : diffs.get(ADDED)) {
             logger.debug("Reporting addition to listener: " +
                     server.getServerAddress().getHostname());
@@ -184,19 +195,6 @@ public class NodesManager implements Watcher {
             // if the server had been silenced, we re-enable monitoring:
             removeSilence(server);
         }
-        // before we jump to trigger alerts, we need to wait around a bit,
-        // so that other servers have the option to do that too.
-        long msecs = (long)(Math.random() * maxDelayMsec);
-
-        try {
-            Thread.sleep(msecs);
-        } catch (InterruptedException e) {
-            // never quite understood the point of this, but so be it...
-            logger.error(String.format("Interrupted while waiting to start alerting (%s)",
-                    e.getLocalizedMessage()));
-            return;
-        }
-
         for (Server server : diffs.get(REMOVED)) {
             logger.debug("Reporting eviction to listener: " +
                     server.getServerAddress().getHostname());
@@ -263,10 +261,11 @@ public class NodesManager implements Watcher {
     public Server getServerInfo(String name) throws KeeperException, InterruptedException {
         String fullPath = zkConfiguration.getBasePath() + File.separatorChar + name;
         Stat stat = new Stat();
-        byte[] data = zk.getData(fullPath, false, stat);
+        byte[] data = zk.getData(fullPath, this, stat);
         try {
             Server server = mapper.readValue(data, Server.class);
-            logger.debug(String.format("%s :: %s", server.getName(), server.getDescription()));
+            logger.debug(String.format("Server: %s -- Payload: %s", server.getName(),
+                    server.getData()));
             return server;
         } catch (IOException e) {
             logger.error(String.format("Could not convert data [%s] into a valid Server object " +
@@ -362,6 +361,11 @@ public class NodesManager implements Watcher {
             if (stat != null) {
                 zk.delete(path, stat.getVersion(), removeSilenceCallback, server);
             }
+            // we now need to add back the watch on the server to get updates
+            path = buildMonitorPathForServer(server);
+            if (zk.exists(path, this) != null) {
+                logger.info("Removed silence for node: " + server.getName());
+            }
         } catch (KeeperException | InterruptedException kex) {
             // by and large this is safe to ignore: it just means another server got notified and
             // got there first to remove this 'silence'
@@ -396,8 +400,46 @@ public class NodesManager implements Watcher {
         }
     };
 
+    /**
+     * The `alert path` is where we keep in ZK's tree the list of server whose alerts are being
+     * serviced
+     *
+     * @param server the server that we are looking for in the `alert path`
+     * @return the fully-qualified path to the node
+     */
     private String buildAlertPathForServer(Server server) {
-        return zkConfiguration.getAlertsPath() + File.separator +
-                server.getServerAddress().getHostname();
+        return buildAlertPathForServer(server.getServerAddress().getHostname());
+    }
+
+    /**
+     * The `alert path` is where we keep in ZK's tree the list of server whose alerts are being
+     * serviced
+     *
+     * @param serverHostname the hostname of the server that we are looking for in the `alert path`
+     * @return the fully-qualified path to the node
+     */
+    private String buildAlertPathForServer(String serverHostname) {
+        return zkConfiguration.getAlertsPath() + File.separator + serverHostname;
+    }
+
+    /**
+     * The `monitor path` is where we keep in ZK's tree the list of server under monitoring
+     *
+     * @param server the server that we are looking for in the `monitor path`
+     * @return the fully-qualified path to the node
+     */
+    private String buildMonitorPathForServer(Server server) {
+        return buildMonitorPathForServer(server.getServerAddress().getHostname());
+    }
+
+    /**
+     * The `monitor path` is where we keep in ZK's tree the list of server under monitoring
+     *
+     * @param serverHostname the hostname of the server that we are looking for in the `monitor
+     *                       path`
+     * @return the fully-qualified path to the node
+     */
+    private String buildMonitorPathForServer(String serverHostname) {
+        return zkConfiguration.getBasePath() + File.separator + serverHostname;
     }
 }
