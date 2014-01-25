@@ -27,7 +27,10 @@ public class BeanConfiguration {
     @Value("${plugin.config_path}")
     String configPath;
 
-    AlertManager alertManager = new AlertManager();
+    @Value("${alert.max_delay_msec}")
+    long maxDelayMsec;
+
+    AlertManager alertManager = new AlertManager(maxDelayMsec);
     Context pluginsContext;
 
     @Bean

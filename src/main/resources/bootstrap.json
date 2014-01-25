@@ -1,0 +1,8 @@
+{
+    "paths": [
+        "/monitor",
+        "/monitor/hosts",
+        "/monitor/config",
+        "/monitor/alerts"
+    ]
+}

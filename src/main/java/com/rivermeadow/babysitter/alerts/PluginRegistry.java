@@ -1,5 +1,6 @@
 package com.rivermeadow.babysitter.alerts;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -42,6 +43,8 @@ public class PluginRegistry {
 
     public static class PluginBundle {
         PluginMetadata metadata;
+
+        @JsonIgnore
         AlertPlugin plugin;
 
         PluginBundle(PluginMetadata metadata, AlertPlugin plugin) {
@@ -120,5 +123,9 @@ public class PluginRegistry {
             }
         }
         return null;
+    }
+
+    public Set<PluginBundle> getAllBundles() {
+        return bundles;
     }
 }

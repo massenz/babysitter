@@ -128,7 +128,7 @@ public class Server {
     }
 
     /**
-     * Constructs a server, listening on a given port, requiring a pint every @code{ttlSeconds}
+     * Constructs a server, listening on a given port, requiring a ping every @code{ttlSeconds}
      *
      * @param serverAddress server's hostname and address
      * @param port where the server is operating
