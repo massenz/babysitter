@@ -25,7 +25,7 @@ import java.util.Set;
 public class PluginRegistry {
 
     public static final String CLASSPATH_URL = "classpath:";
-    private static final String BOOTSTRAP_FILE = "/plugins.json";
+    private static final String BOOTSTRAP_FILE = "/config/plugins.json";
 
     public static class PluginMetadata {
         @JsonProperty("name")

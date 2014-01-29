@@ -5,7 +5,6 @@ import com.rivermeadow.babysitter.alerts.Context;
 import com.rivermeadow.babysitter.alerts.Pager;
 import org.apache.log4j.Logger;
 
-import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.file.Path;
@@ -21,7 +20,7 @@ import java.util.Properties;
 public class MandrillEmailPlugin implements AlertPlugin {
 
     // TODO: this should be configurable via a system property
-    public static final String CONFIG_FILE = "mandrill-email.cfg";
+    public static final String CONFIG_FILE = "config/mandrill-email.cfg";
     public static final String NAME = "Mandrill Email Alert plugin";
     public static final String DESC = "Sends an email alert via the Mandrill (http://mandrill" +
             ".com) email service using the REST API.";
