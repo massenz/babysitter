@@ -6,7 +6,11 @@
 
     <groupId>com.rivermeadow</groupId>
     <artifactId>babysitter</artifactId>
-    <version>1.1-SNAPSHOT</version>
+    <version>${babysitter.version}</version>
+
+    <properties>
+        <babysitter.version>0.24.0</babysitter.version>
+    </properties>
 
     <parent>
         <groupId>org.springframework.boot</groupId>
@@ -15,6 +19,8 @@
     </parent>
 
     <build>
+        <!-- build.number comes from teamcity, locally it will just be null-->
+        <finalName>babysitter-${babysitter.version}-${build.number}</finalName>
         <plugins>
             <plugin>
                 <artifactId>maven-compiler-plugin</artifactId>
