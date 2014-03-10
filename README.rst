@@ -3,7 +3,7 @@ Babysitter - Monitoring server
 ==============================
 
 :Date: 2013-10-07
-:Author: M. Massenzio
+:Author: Marco Massenzio
 :Version: 0.2
 :Updated: 2014-01-24
 
