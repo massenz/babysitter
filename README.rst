@@ -16,7 +16,7 @@ whatever reason, planned or unplanned).
 
 The monitoring system is "application unaware" in that it does not know any of
 the details of any of the services that may be using it, so it is widely applicable
-to existing, and future, services, without modifying either the service nodes 
+to existing, and future, services, without modifying either the service nodes
 themselves, or the monitoring system when new services are added to the "monitored
 pool."
 
@@ -58,17 +58,17 @@ Servers currently under monitoring and active::
     POST /api/1/servers
         Will register a new server to be under monitoring; no ``{name}`` in the URL, but the
         body model a ``Server`` object (see Protocol_).
-        
+
     GET /api/1/servers
         Get a list of all servers under monitoring
-        
+
     GET /api/1/servers/{name}
         Retrieves the status and the latest data uploaded by the server registered with ``{name}``
 
     DELETE /api/1/servers/{name}
         Unregisters the server and stops monitoring; it will not trigger an alert but will cause
         an error to be logged if the server continues to post updates to zookeeper
-        
+
 See the Protocol_ section below for an example of the request/response body.
 **ToDo** provide an example of the JSON response.
 
@@ -79,7 +79,7 @@ Ongoing alerts can be retrieved using::
 an ongoing alert can be "silenced" by using::
 
     DELETE /api/1/alerts/{id}
-    
+
 **ToDo** provide an example of the JSON responses.
 
 
@@ -118,7 +118,7 @@ See ``src/main/python/simpleserver.py`` for an example of how to use.
 Java
 ^^^^
 
-There is no current available SDK for Java, but any client that can create a 
+There is no current available SDK for Java, but any client that can create a
 node on ZooKeeper as described in Protocol_ can be added to the monitored pool.
 
 Configuration
@@ -166,12 +166,12 @@ Example ``application.properties`` file::
     # Maximum delay before an AlertManager triggers an alert, in msec
     # currently not used
     alert.max_delay_msec: 5000
-    
+
 Most of the configuration properties can be defined on the command line too, via
 a system property variable::
 
     -Dserver.port=9001 -Dboostrap.location=file:///etc/babysitter/bootstrap.json
-    
+
 
 Bootstrapping
 ^^^^^^^^^^^^^
@@ -187,7 +187,7 @@ specified nodes created in ZK::
             "/monitor/alerts"
         ]
     }
-    
+
 The number and location of nodes created is entirely arbitrary, but it must at least
 ensure that the nodes defined in the ``zookeeper.base_path`` and ``zookeeper.alerts_path``
 are created (``zookeeper.config_path`` is currently not used, but it is recommended that
@@ -248,10 +248,10 @@ Following the alert, the server is placed in a special ``silence`` area (current
 a node under the ``/hosts/alerts`` zookeeper subtree) and no further alerting
 events are generated; if a server with the same ``server_address.hostname`` is
 subsequently registered again, the entry in the `silence area` is removed, so that
-alerts are re-enable (*note* that it is irrelevant whether the new server is a 
+alerts are re-enable (*note* that it is irrelevant whether the new server is a
 genuine new instance, or the same server who has recovered from whatever temporary
 malfunction).
- 
+
 The ``Server`` object is in JSON and defined **must** have the following structure::
 
     {
@@ -282,17 +282,17 @@ The ``Server`` object is in JSON and defined **must** have the following structu
     ``type``
         is arbitrary and entirely opaque to the monitoring system: this can, for example, be
         used by a plugin to filter out all server who are not of interest/relevance;
-        
+
     ``port``
         similarly, this could be used (while the server is still active) to communicate back
         or interrogate for more information; currently not used;
-        
+
     ``payload``
         as indicated, this is an opaque object that further describes server attributes and
         can be used by the alerting plugins (and even be sent alongside the alert)
 
-.. Links:
 
 .. _Zookeeper: http://zookeeper.apache.org/
 .. _log4j: http://logging.apache.org/log4j/1.2/manual.html
 .. _Spring Boot: http://projects.spring.io/spring-boot/docs/spring-boot/README.html
+
