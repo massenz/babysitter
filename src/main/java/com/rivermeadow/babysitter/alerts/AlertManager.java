@@ -7,6 +7,8 @@ import com.rivermeadow.babysitter.model.Status;
 import com.rivermeadow.babysitter.zookeper.EvictionListener;
 import com.rivermeadow.babysitter.zookeper.RegistrationListener;
 import org.apache.log4j.Logger;
+import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Set;
@@ -20,16 +22,12 @@ import java.util.Set;
  * @author marco
  *
  */
+@Component
 public class AlertManager implements EvictionListener, RegistrationListener {
     Logger logger = Logger.getLogger(AlertManager.class);
 
     Set<Server> registeredServers = Sets.newHashSet();
     List<Pager> pagers = Lists.newArrayList();
-    long maxDelayMsec;
-
-    public AlertManager(long maxDelayMsec) {
-        this.maxDelayMsec = maxDelayMsec;
-    }
 
     public void addPager(Pager pager) {
         pagers.add(pager);

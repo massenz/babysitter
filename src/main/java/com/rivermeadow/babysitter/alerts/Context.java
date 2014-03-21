@@ -10,15 +10,12 @@ import java.util.Map;
 /**
  */
 @Component
+@ConfigurationProperties(name = "plugin")
 public class Context {
 
     String configPath;
 
     Map<String, Object> properties = Maps.newHashMap();
-
-    public Context(String configPath) {
-        this.configPath = configPath;
-    }
 
     public Object getNamedProperty(String name) {
         return properties.get(name);
@@ -30,5 +27,9 @@ public class Context {
 
     public String getConfigPath() {
         return configPath;
+    }
+
+    public void setConfigPath(String configPath) {
+        this.configPath = configPath;
     }
 }

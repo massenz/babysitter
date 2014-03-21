@@ -9,6 +9,7 @@ import org.apache.log4j.Logger;
 import org.apache.zookeeper.*;
 import org.apache.zookeeper.data.Stat;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
 import java.io.File;
@@ -39,6 +40,7 @@ import static com.rivermeadow.babysitter.plugins.utils.ResourceLocator.*;
  *
  * @author marco
  */
+@Component
 public class NodesManager implements Watcher {
     private static final String REMOVED = "REMOVED";
     private static final String ADDED = "ADDED";
