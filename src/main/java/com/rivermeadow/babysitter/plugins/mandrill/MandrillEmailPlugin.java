@@ -20,7 +20,7 @@ import java.util.Properties;
 public class MandrillEmailPlugin implements AlertPlugin {
 
     // TODO: this should be configurable via a system property
-    public static final String CONFIG_FILE = "config/mandrill-email.cfg";
+    public static final String CONFIG_FILE = "mandrill-email.cfg";
     public static final String NAME = "Mandrill Email Alert plugin";
     public static final String DESC = "Sends an email alert via the Mandrill (http://mandrill" +
             ".com) email service using the REST API.";
@@ -35,7 +35,7 @@ public class MandrillEmailPlugin implements AlertPlugin {
     @Override
     public void startup(Context pluginContext) {
         this.ctx = pluginContext;
-        Path configFilepath = Paths.get(this.ctx.getConfigPath(), CONFIG_FILE);
+        Path configFilepath = this.ctx.getConfigAbsPath().resolve(CONFIG_FILE);
         Properties props = new Properties();
         try {
             props.load(new FileInputStream(configFilepath.toFile()));

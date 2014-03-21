@@ -24,7 +24,6 @@ import java.util.Map;
  * @author marco
  *
  */
-@Component
 public class MandrillEmailAlertPager implements Pager {
 
     private static final Logger logger = Logger.getLogger(MandrillEmailAlertPager.class);

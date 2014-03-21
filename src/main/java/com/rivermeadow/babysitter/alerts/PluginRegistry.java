@@ -11,6 +11,8 @@ import org.springframework.stereotype.Component;
 import org.xeustechnologies.jcl.JarClassLoader;
 
 import java.io.IOException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
@@ -24,8 +26,8 @@ import java.util.Set;
 @Component
 public class PluginRegistry {
 
-    public static final String CLASSPATH_URL = "classpath:";
-    private static final String BOOTSTRAP_FILE = "/config/plugins.json";
+    /** The name of the file that describes the plugins to load at startup */
+    public static final String PLUGINS_JSON = "plugins.json";
 
     public static class PluginMetadata {
         @JsonProperty("name")
@@ -70,12 +72,10 @@ public class PluginRegistry {
 
     @Autowired
     public PluginRegistry(AlertManager alertManager, Context pluginsContext) {
-        // TODO: for now only classpath loading of bootstrap file is supported
-        List<PluginMetadata> pluginsMetadata = parse(BOOTSTRAP_FILE);
+        String pluginsConfigDir = pluginsContext.getConfigPath();
+        Path initConfigPath = Paths.get(pluginsConfigDir, PLUGINS_JSON);
+        List<PluginMetadata> pluginsMetadata = parse(initConfigPath.toAbsolutePath());
         logger.info("Found " + pluginsMetadata.size() + " bootstrap plugins");
-        for (PluginMetadata md : pluginsMetadata) {
-            logger.info(md);
-        }
         loadAndInitializePlugins(pluginsMetadata, pluginsContext);
         activateAndRegisterPlugins(alertManager);
     }
@@ -88,8 +88,9 @@ public class PluginRegistry {
     }
 
     private void loadAndInitializePlugins(List<PluginMetadata> pluginsMetadata, Context ctx) {
-        // TODO: currently only loads from the classpath - will JCL to load from other URLs
+        // TODO: currently only loads from the classpath - must use JCL to load from other URLs
         for (PluginMetadata pmd : pluginsMetadata) {
+            logger.info(String.format("Loading and initializing plugin: %s", pmd));
             try {
                 AlertPlugin plugin = (AlertPlugin) Class.forName(pmd.className).newInstance();
                 plugin.startup(ctx);
@@ -104,12 +105,12 @@ public class PluginRegistry {
         }
     }
 
-    private List<PluginMetadata> parse(String bootstrapPath) {
+    private List<PluginMetadata> parse(Path bootstrapPath) {
         ObjectMapper mapper = new ObjectMapper();
         JavaType type = mapper.getTypeFactory().constructCollectionType(List.class,
                 PluginMetadata.class);
         try {
-            return mapper.readValue(getClass().getResourceAsStream(bootstrapPath), type);
+            return mapper.readValue(bootstrapPath.toFile(), type);
         } catch (IOException e) {
             logger.error("Could not locate bootstrap file: " + e.getLocalizedMessage());
             return Collections.emptyList();

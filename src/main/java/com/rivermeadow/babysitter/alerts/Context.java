@@ -5,6 +5,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Map;
 
 /**
@@ -31,5 +33,9 @@ public class Context {
 
     public void setConfigPath(String configPath) {
         this.configPath = configPath;
+    }
+
+    public Path getConfigAbsPath() {
+        return Paths.get(configPath).toAbsolutePath();
     }
 }

@@ -22,6 +22,7 @@ import java.util.Set;
 
 import com.rivermeadow.babysitter.alerts.PluginRegistry;
 import com.rivermeadow.babysitter.model.Server;
+import com.rivermeadow.babysitter.spring.BeanConfiguration;
 import com.rivermeadow.babysitter.zookeper.NodesManager;
 
 
@@ -127,7 +128,7 @@ public class ServerController {
         // TODO: inject correct major.minor version and generated build no.
         logger.debug(String.format("Starting Babysitter Server - rev. %d.%d.%d", 0, 2, 0));
         SpringApplication.run(new Object[]{
-                ServerController.class
+                ServerController.class, BeanConfiguration.class
         }, args);
     }
 }
