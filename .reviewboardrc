@@ -1,5 +1,0 @@
-# BRANCH = rm_git.get_git_branch()
-REPOSITORY= 'babysitter'
-REVIEWBOARD_URL = 'https://rbcommons.com/s/rivermeadow'
-TARGET_GROUPS = 'Java'
-TRACKING_BRANCH = 'origin/develop'
