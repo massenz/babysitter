@@ -2,6 +2,8 @@
 Babysitter - Monitoring server
 ==============================
 
+.. image:: https://go-shields.herokuapp.com/license-apache2-blue.png
+
 :Date: 2013-10-07
 :Author: M. Massenzio
 :Version: 0.2
@@ -16,7 +18,7 @@ whatever reason, planned or unplanned).
 
 The monitoring system is "application unaware" in that it does not know any of
 the details of any of the services that may be using it, so it is widely applicable
-to existing, and future, services, without modifying either the service nodes 
+to existing, and future, services, without modifying either the service nodes
 themselves, or the monitoring system when new services are added to the "monitored
 pool."
 
@@ -53,14 +55,14 @@ Client API
 Plugins
 ^^^^^^^
 
- 
+
 Components
 ----------
 
 Configuration
 -------------
 
-  -Dplugin.config_path="${HOME}/.babysitter/etc" 
+  -Dplugin.config_path="${HOME}/.babysitter/etc"
 
 Application
 ^^^^^^^^^^^
@@ -88,12 +90,12 @@ Example ``application.properties`` file::
     # Maximum delay before an AlertManager triggers an alert, in msec
     # currently not used
     alert.max_delay_msec: 5000
-    
+
 Most of the configuration properties can be defined on the command line too, via
 a system property variable::
 
     -Dserver.port=9001 -Dboostrap.location=file:///etc/babysitter/bootstrap.json
-    
+
 
 Bootstrapping
 ^^^^^^^^^^^^^
@@ -109,7 +111,7 @@ specified nodes created in ZK::
             "/monitor/alerts"
         ]
     }
-    
+
 The number and location of nodes created is entirely arbitrary, but it must at least
 ensure that the nodes defined in the ``zookeeper.base_path`` and ``zookeeper.alerts_path``
 are created (``zookeeper.config_path`` is currently not used, but it is recommended that
@@ -171,4 +173,4 @@ Server object (``JSON``)::
 .. Links:
 
 .. _Zookeeper: http://zookeeper.apache.org/
-.. _log4j: 
+.. _log4j:
