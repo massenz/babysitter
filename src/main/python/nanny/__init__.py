@@ -111,11 +111,11 @@ class NannyState(object):
     """ Base abstract class to attach a server process to a monitoring ZooKeeper instance
     """
 
-    DEFAULT_TIMEOUT = 10
     #: timeout for a server connection
+    DEFAULT_TIMEOUT = 10
 
-    ZK_TREE_ROOT = '/monitor/hosts'
     #: the node where the monitoring subtree is rooted
+    ZK_TREE_ROOT = '/monitor/hosts'
 
     def __init__(self, zk_hosts='localhost:2181', suffix=None):
         """ Creates the nanny and starts the ZK client and registers this host to be babysat

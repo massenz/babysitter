@@ -5,7 +5,6 @@ import com.rivermeadow.babysitter.alerts.Context;
 import com.rivermeadow.babysitter.alerts.Pager;
 import org.apache.log4j.Logger;
 
-import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.file.Path;
@@ -36,7 +35,7 @@ public class MandrillEmailPlugin implements AlertPlugin {
     @Override
     public void startup(Context pluginContext) {
         this.ctx = pluginContext;
-        Path configFilepath = Paths.get(this.ctx.getConfigPath(), CONFIG_FILE);
+        Path configFilepath = this.ctx.getConfigAbsPath().resolve(CONFIG_FILE);
         Properties props = new Properties();
         try {
             props.load(new FileInputStream(configFilepath.toFile()));
