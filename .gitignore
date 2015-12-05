@@ -1,10 +1,22 @@
-.idea
-*.iml
+# Git ignore file, 2015-12-05
+
 .venv
 .DS_Store
+
+# Python binaries
 *.pyc
 *.egg-info
 
+# IntelliJ
+.idea
+*.iml
+
+# Eclipse
+.project
+.classpath
+.settings/
+
+# Build and binary directories
 build/
 dist/
 target/
