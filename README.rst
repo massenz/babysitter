@@ -126,8 +126,22 @@ Java
 There is no current available SDK for Java, but any client that can create a
 node on ZooKeeper as described in Protocol_ can be added to the monitored pool.
 
+Building and Running
+--------------------
+
+Use the helper methods in the ``bin/`` directory::
+
+    $ ./bin/build.sh
+    $ ./bin/runServer.sh
+
+The server/build number are generated automatically from the ``version.info`` file and the
+git SHA, respectively; please avoid setting them manually.
+
+**TODO** the ``version.info`` mechanism has not been implemented yet.
+
+
 Configuration
--------------
+^^^^^^^^^^^^^
 
 *Babysitter* uses `Spring Boot`_ so the ``application.properties`` file will be
 loaded according to its rules: essentially, either in the root of the classpath, the
@@ -143,6 +157,8 @@ command line with something like this::
 
 Command-line system properties take precedence over configuration file ones.
 
+However, it is *recommended* **not** to do this, and use ``application.properties`` and the
+``bin/`` scripts.
 
 Application
 ^^^^^^^^^^^
