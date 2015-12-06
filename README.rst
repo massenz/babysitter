@@ -160,6 +160,14 @@ Command-line system properties take precedence over configuration file ones.
 However, it is *recommended* **not** to do this, and use ``application.properties`` and the
 ``bin/`` scripts.
 
+The default profile (defined in ``runServer.sh`` via the ``spring.profiles.default`` property) is
+the "test" profile (which also uses ``bootstrap.location`` file to initialize users); this
+should be changed to reflect the Production environment (``production`` profile) when launching
+the server in prod envs: do this in the ``application.properties``::
+
+    spring.profiles.active: production
+
+
 Application
 ^^^^^^^^^^^
 
