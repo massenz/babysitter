@@ -7,7 +7,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * Manages the ZK zkConfiguration options, by reading them from the application
- * configuration file (see {@code resources/application.properties})
+ * configuration file (see {@code config/application.properties})
  *
  * @author marco
  *

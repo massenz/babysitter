@@ -7,7 +7,7 @@ Babysitter - Monitoring server
 :Date: 2013-10-07
 :Author: Marco Massenzio
 :Version: 0.2
-:Updated: 2014-01-24
+:Updated: 2015-12-05
 
 Use Case
 --------
@@ -153,7 +153,7 @@ Example ``application.properties`` file::
 
     # Configuration for babysitter service
 
-    zookeeper.hosts: localhost:2181,localhost:2182,localhost:2183
+    zookeeper.hosts: zk1.prod.example.com:2181,zk2.prod.example.com:2181,zk3.prod.example.com:2181
     zookeeper.session_timeout: 5000
 
     # This is the path where all the servers will be attached, as children
@@ -202,6 +202,10 @@ that node is created too).
 The location of the file can, as usual, be defined via a system property too::
 
     -Dbootstrap.location=file:///etc/babysitter/conf/bootstrap.json
+
+**NOTE** the ``bootstrap.location`` **must** be a valid URI.
+
+**NOTE** we do not support (yet) ``http(s)://`` bootstrap locations.
 
 Logging
 ^^^^^^^
@@ -258,7 +262,7 @@ alerts are re-enable (*note* that it is irrelevant whether the new server is a
 genuine new instance, or the same server who has recovered from whatever temporary
 malfunction).
 
-The ``Server`` object is in JSON and defined **must** have the following structure::
+The ``Server`` object is in JSON and **must** have the following structure::
 
     {
         "server_address": {
@@ -266,7 +270,7 @@ The ``Server`` object is in JSON and defined **must** have the following structu
             "hostname": "Marcos-MacBook-Pro.local"
         },
         "type": "simpleserver",
-        "port": 0,
+        "port": 8080,
         "payload": {
             "#": "The format of this object is arbitrary and can contain any legal JSON",
             "current_time": "Wed Nov 6 23:30:53 2013",

@@ -4,5 +4,17 @@
         "/monitor/hosts",
         "/monitor/config",
         "/monitor/alerts"
+    ],
+    "users": [
+        {
+            "name": "test",
+            "password": "pass",
+            "roles": ["USER"]
+        },
+        {
+            "name": "admin",
+            "password": "zekret",
+            "roles": ["USER", "ADMIN"]
+        }
     ]
 }

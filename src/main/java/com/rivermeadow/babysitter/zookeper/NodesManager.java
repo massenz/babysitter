@@ -1,10 +1,10 @@
 package com.rivermeadow.babysitter.zookeper;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import com.rivermeadow.babysitter.Constants;
 import org.apache.log4j.Logger;
 import org.apache.zookeeper.*;
 import org.apache.zookeeper.data.Stat;
@@ -44,7 +44,6 @@ import static com.rivermeadow.babysitter.plugins.utils.ResourceLocator.*;
 public class NodesManager implements Watcher {
     private static final String REMOVED = "REMOVED";
     private static final String ADDED = "ADDED";
-    public static final String BOOTSTRAP_LOCATION = "bootstrap.location";
     Logger logger = Logger.getLogger(NodesManager.class);
 
     private ZooKeeper zk;
@@ -92,7 +91,7 @@ public class NodesManager implements Watcher {
 
     private void bootstrap() {
         try {
-            InputStream bootstrapFile = getResourceFromSystemProperty(BOOTSTRAP_LOCATION);
+            InputStream bootstrapFile = getResourceFromSystemProperty(Constants.BOOTSTRAP_LOCATION);
             List<String> nodes = (List<String>)
                     mapper.readValue(bootstrapFile, Map.class).get("paths");
             logger.info("Paths to create: " + nodes);
@@ -104,8 +103,8 @@ public class NodesManager implements Watcher {
                     "for the application; this may not be fatal, but it's possible the server " +
                     "will misbehave.  Failure was: %s, while trying to access %s (based on " +
                     "system property %s)", e.getLocalizedMessage(),
-                    System.getProperty(BOOTSTRAP_LOCATION),
-                    BOOTSTRAP_LOCATION));
+                    System.getProperty(Constants.BOOTSTRAP_LOCATION),
+                    Constants.BOOTSTRAP_LOCATION));
         }
     }
 
