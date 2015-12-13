@@ -57,19 +57,11 @@ Client API
 
 Servers currently under monitoring and active::
 
-    POST /api/1/servers
-        Will register a new server to be under monitoring; no ``{name}`` in the URL, but the
-        body model a ``Server`` object (see Protocol_).
-
     GET /api/1/servers
         Get a list of all servers under monitoring
 
     GET /api/1/servers/{name}
         Retrieves the status and the latest data uploaded by the server registered with ``{name}``
-
-    DELETE /api/1/servers/{name}
-        Unregisters the server and stops monitoring; it will not trigger an alert but will cause
-        an error to be logged if the server continues to post updates to zookeeper
 
 See the Protocol_ section below for an example of the request/response body.
 **ToDo** provide an example of the JSON response.
@@ -84,14 +76,32 @@ an ongoing alert can be "silenced" by using::
 
 **ToDo** provide an example of the JSON responses.
 
+Servers cannot be (un)registered via the API: they will be automoatically picked up from the
+ZooKeeper session and their details stored; see the `Client Libraries`_ section below.
+
 
 Plugins
 ^^^^^^^
 
+There is a REST API to retrieve a list of active plugins, and details about each::
+
+    GET /api/1/plugins
+        Returns a list of all registered plugins
+
+    GET /api/1/plugins/{fqn}
+        Provides details about the plugin whose Fully Qualified Name is given.
+
+    --- still to be implemented:
+
+    POST /api/1/plugins
+        Registers a plugin, providing also a URL from where to donwload the JAR artifact.
+
+    DELETE /api/1/plugin
+        Unregister and unloads (or disables) the given plugin.
+
+
 Components
 ----------
-
-**ToDo** brief description of plugin API
 
 .. image:: docs/images/plugins.png
     :width: 400px
@@ -106,9 +116,15 @@ class (``MyPlugin`` in the diagram).
 
 For more information see Configuration_ below.
 
-
 Client Libraries
 ----------------
+
+In order for a server to be registered and monitored, its metadata (alongside some "opaque"
+``payload`` data, that will be passed on in the alert body) needs to be created in ZooKeeper in
+the appropriate leaf node (configured by ``zookeeper.base_path``).
+
+While this can be done using client code and the normal ZK API, we also provide client libraries
+that abstract this behavior away from the server code.
 
 Python
 ^^^^^^

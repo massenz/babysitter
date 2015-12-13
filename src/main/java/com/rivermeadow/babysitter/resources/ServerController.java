@@ -71,7 +71,7 @@ public class ServerController {
         }
     }
 
-    // NOTE: the RegEx pattern is necessary to cope with Spring's PathVariable stupidity
+    // NOTE: the RegEx pattern is necessary to cope with Spring's PathVariable behavior:
     //   without it, it would "swallow" anything after a `.` (perfectly valid in a URL param)
     //   See: http://stackoverflow.com/questions/16332092/spring-mvc-pathvariable-with-dot-is-getting-truncated
     @RequestMapping(value = "/servers/{id:.+}", method = {RequestMethod.GET},
